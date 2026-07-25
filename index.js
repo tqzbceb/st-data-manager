@@ -153,25 +153,92 @@ async function dbClear() {
     });
 }
 
-async function saveHistory(tab, entries) {
+let __idCounter = 0;
+function genId() { return Date.now() * 1000 + ((__idCounter++) % 1000); }
+
+async function trimHistory() {
+    const all = await dbGetAll();
+    if (all.length > HISTORY_MAX) {
+        all.sort((a, b) => a.id - b.id);
+        for (const r of all.slice(0, all.length - HISTORY_MAX)) await dbDelete(r.id);
+    }
+}
+
+async function saveHistory(tab, entries, opts = {}) {
     const rec = {
-        id: Date.now(),
+        id: genId(),
         time: new Date().toISOString(),
         tab,
         label: adapters[tab].label,
         count: entries.length,
         names: entries.map(e => e.name),
+        auto: !!opts.auto,
         entries,
     };
     try {
         await dbPut(rec);
-        const all = await dbGetAll();
-        if (all.length > HISTORY_MAX) {
-            all.sort((a, b) => a.id - b.id);
-            for (const r of all.slice(0, all.length - HISTORY_MAX)) await dbDelete(r.id);
-        }
+        await trimHistory();
     } catch (e) {
         console.warn('[数据管家] 写入历史失败', e);
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ *  自动备份新建的用户设定 / 面具（Persona）
+ * ------------------------------------------------------------------ */
+
+let knownPersonas = null;
+
+function autoPersonaEnabled() {
+    try { return localStorage.getItem('stdm_auto_persona') !== '0'; } catch { return true; }
+}
+
+function personaSnapshot() {
+    try { return new Set(Object.keys(ctx().powerUserSettings?.personas || {})); }
+    catch { return new Set(); }
+}
+
+async function autoBackupPersona(id) {
+    try {
+        const pu = ctx().powerUserSettings || {};
+        const name = (pu.personas && pu.personas[id]) || id;
+        const item = { id, name, avatar: id };
+        const data = await adapters.personas.read(item);
+        const entry = adapters.personas.backupOf(item, data);
+        await saveHistory('personas', [entry], { auto: true });
+        toast(`已自动备份新面具：${name}`, 'success');
+    } catch (e) {
+        console.warn('[数据管家] 自动备份 persona 失败', e);
+    }
+}
+
+function watchPersonas() {
+    if (watchPersonas._done) return;
+    try {
+        const c = ctx();
+        const es = c.eventSource;
+        const et = c.eventTypes || c.event_types;
+        if (!es || !et) return;
+        watchPersonas._done = true;
+        knownPersonas = personaSnapshot();
+
+        const check = async () => {
+            if (!autoPersonaEnabled()) { knownPersonas = personaSnapshot(); return; }
+            const cur = personaSnapshot();
+            if (knownPersonas) {
+                for (const id of cur) {
+                    if (!knownPersonas.has(id)) await autoBackupPersona(id);
+                }
+            }
+            knownPersonas = cur;
+        };
+
+        for (const name of ['PERSONA_CREATED', 'PERSONA_CHANGED', 'SETTINGS_UPDATED']) {
+            if (et[name]) { try { es.on(et[name], check); } catch { /* 忽略 */ } }
+        }
+        console.log('[数据管家] 面具自动备份已启用');
+    } catch (e) {
+        console.debug('[数据管家] persona 监听初始化失败', e);
     }
 }
 
@@ -306,6 +373,78 @@ const adapters = {
         },
         async remove(item, opts = {}) {
             await post('/api/characters/delete', { avatar_url: item.avatar, delete_chats: !!opts.deleteChats });
+        },
+    },
+
+    personas: {
+        label: '用户设定 / 面具',
+        editable: false,
+        renamable: true,
+        isPersona: true,
+        _pu() { return ctx().powerUserSettings || {}; },
+        async load() {
+            const pu = this._pu();
+            const personas = pu.personas || {};
+            const descs = pu.persona_descriptions || {};
+            return Object.keys(personas).map(id => ({
+                id,
+                name: personas[id] || id,
+                avatar: id,
+                group: '用户设定 / 面具 (Persona)',
+                thumb: `/thumbnail?type=persona&file=${encodeURIComponent(id)}`,
+                meta: descs[id] && descs[id].description ? '含描述' : '',
+            }));
+        },
+        async fetchBlob(item) {
+            const res = await fetch(`/thumbnail?type=persona&file=${encodeURIComponent(item.avatar)}`);
+            if (!res.ok) throw new Error(`读取头像失败 ${res.status}`);
+            return await res.blob();
+        },
+        async read(item) {
+            const pu = this._pu();
+            let png = null;
+            try { png = await blobToDataURL(await this.fetchBlob(item)); }
+            catch (e) { console.warn('[数据管家] persona 头像读取失败', e); }
+            return { id: item.id, name: item.name, desc: pu.persona_descriptions ? pu.persona_descriptions[item.id] || null : null, png };
+        },
+        backupOf(item, data) { return { id: item.id, name: item.name, desc: data.desc, png: data.png }; },
+        async rename(item, newName) {
+            const pu = ctx().powerUserSettings;
+            if (!pu) throw new Error('无法访问设置');
+            pu.personas = pu.personas || {};
+            pu.personas[item.id] = newName;
+            ctx().saveSettingsDebounced();
+        },
+        async remove(item) {
+            try { await post('/api/avatars/delete', { avatar: item.id }); }
+            catch (e) { console.warn('[数据管家] 删除头像文件失败（可能已不存在）', e); }
+            const pu = ctx().powerUserSettings;
+            if (pu) {
+                if (pu.personas) delete pu.personas[item.id];
+                if (pu.persona_descriptions) delete pu.persona_descriptions[item.id];
+                if (pu.default_persona === item.id) pu.default_persona = null;
+                ctx().saveSettingsDebounced();
+            }
+        },
+        async restore(backup) {
+            if (backup.png) {
+                try {
+                    const blob = dataURLToBlob(backup.png);
+                    const fd = new FormData();
+                    fd.append('avatar', blob, backup.id);
+                    fd.append('overwrite_name', backup.id);
+                    await fetch('/api/avatars/upload', { method: 'POST', headers: multipartHeaders(), body: fd });
+                } catch (e) { console.warn('[数据管家] persona 头像上传失败', e); }
+            }
+            const pu = ctx().powerUserSettings;
+            if (!pu) throw new Error('无法访问设置');
+            pu.personas = pu.personas || {};
+            pu.personas[backup.id] = backup.name;
+            if (backup.desc) {
+                pu.persona_descriptions = pu.persona_descriptions || {};
+                pu.persona_descriptions[backup.id] = backup.desc;
+            }
+            ctx().saveSettingsDebounced();
         },
     },
 
@@ -912,13 +1051,20 @@ async function renderHistory(container) {
         const badge = document.createElement('span');
         badge.className = 'stdm-badge';
         badge.textContent = rec.label;
+        top.append(badge);
+        if (rec.auto) {
+            const autoTag = document.createElement('span');
+            autoTag.className = 'stdm-badge stdm-badge-auto';
+            autoTag.textContent = '自动';
+            top.append(autoTag);
+        }
         const count = document.createElement('span');
         count.className = 'stdm-hist-count';
         count.textContent = `${rec.count} 项`;
         const time = document.createElement('span');
         time.className = 'stdm-hist-time';
-        time.textContent = fmtTime(rec.time || rec.id);
-        top.append(badge, count, time);
+        time.textContent = fmtTime(rec.time || Math.floor(rec.id / 1000));
+        top.append(count, time);
 
         const nm = document.createElement('div');
         nm.className = 'stdm-hist-names';
@@ -1061,13 +1207,24 @@ function mount() {
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
-            <p style="font-size:.85em;opacity:.8;">批量管理预设、世界书、角色卡、聊天记录和主题美化方案。删除前自动备份，可一键撤销或从历史还原。</p>
+            <p style="font-size:.85em;opacity:.8;">批量管理预设、世界书、角色卡、聊天记录、用户设定(面具)和主题美化方案。删除前自动备份，可一键撤销或从历史还原。</p>
+            <label class="checkbox_label" style="margin:6px 0;">
+                <input type="checkbox" id="stdm_auto_persona_chk">
+                <span>新建用户设定(面具)时自动备份</span>
+            </label>
             <div class="menu_button menu_button_icon" id="stdm_open_btn">
                 <i class="fa-solid fa-folder-tree"></i><span>打开数据管家</span>
             </div>
         </div>`;
         settings.appendChild(block);
         block.querySelector('#stdm_open_btn').addEventListener('click', openModal);
+        const apc = block.querySelector('#stdm_auto_persona_chk');
+        apc.checked = autoPersonaEnabled();
+        apc.addEventListener('change', (e) => {
+            try { localStorage.setItem('stdm_auto_persona', e.target.checked ? '1' : '0'); } catch { /* 忽略 */ }
+            if (e.target.checked) { knownPersonas = personaSnapshot(); }
+            toast(e.target.checked ? '已开启：新建面具时自动备份' : '已关闭面具自动备份', 'info');
+        });
     }
 }
 
@@ -1088,10 +1245,23 @@ function registerSlashCommand() {
     }
 }
 
+function initPersonaWatch() {
+    try {
+        const c = ctx();
+        const et = c.eventTypes || c.event_types;
+        if (c.eventSource && et && et.APP_READY) {
+            c.eventSource.on(et.APP_READY, watchPersonas);
+        }
+    } catch { /* 忽略 */ }
+    setTimeout(watchPersonas, 4000);
+    setTimeout(watchPersonas, 12000);
+}
+
 (function init() {
     const start = () => {
         mount();
         registerSlashCommand();
+        initPersonaWatch();
         setTimeout(mount, 3000);
         console.log('[数据管家] 已加载');
     };

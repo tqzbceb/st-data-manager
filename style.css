@@ -560,6 +560,12 @@ dialog.popup.stdm-popup,
     white-space: nowrap;
 }
 
+.stdm-badge-auto {
+    color: #9fe6c0;
+    background: rgba(93, 202, 165, 0.16);
+    border-color: rgba(93, 202, 165, 0.35);
+}
+
 .stdm-hist-count { font-size: 0.82em; font-weight: 500; color: var(--stdm-text); }
 .stdm-hist-time { font-size: 0.78em; color: var(--stdm-text-dim); font-variant-numeric: tabular-nums; }
 
