@@ -4,7 +4,6 @@
    由 data-theme 属性切换（aurora / rose / teal / amber）。
    ============================================================ */
 
-/* ---------- 主题变量（默认 = aurora 星霜）---------- */
 .stdm-root,
 .stdm-popup {
     --stdm-panel: #14151e;
@@ -20,7 +19,6 @@
     --stdm-text: #e8eaf2;
     --stdm-text-rgb: 232, 234, 242;
 
-    /* 派生 / 中性（跨主题通用）*/
     --stdm-text-dim: rgba(var(--stdm-text-rgb), 0.5);
     --stdm-glass-hi: rgba(255, 255, 255, 0.06);
     --stdm-line: rgba(255, 255, 255, 0.10);
@@ -76,7 +74,7 @@
     --stdm-text-rgb: 242, 235, 220;
 }
 
-/* ---------- 承载弹窗：固定深色实底 ---------- */
+/* 承载弹窗：固定深色实底 */
 dialog.popup.stdm-popup,
 .popup.stdm-popup {
     background: var(--stdm-panel) !important;
@@ -100,7 +98,7 @@ dialog.popup.stdm-popup,
 .stdm-popup .popup-content > .stdm-root { flex: 1 1 auto; }
 .stdm-popup .popup-controls { padding: 8px 12px; }
 
-/* ---------- 内容根 ---------- */
+/* 内容根 */
 .stdm-root {
     display: flex;
     flex-direction: column;
@@ -119,7 +117,7 @@ dialog.popup.stdm-popup,
 .stdm-root *::before,
 .stdm-root *::after { box-sizing: border-box; }
 
-/* ---------- 头部 ---------- */
+/* 头部 */
 #stdm_header {
     display: flex;
     align-items: center;
@@ -165,7 +163,7 @@ dialog.popup.stdm-popup,
 }
 .stdm_theme_sel:focus { border-color: var(--stdm-accent); }
 
-/* ---------- 标签页 ---------- */
+/* 标签页 */
 #stdm_tabs {
     display: flex;
     gap: 2px;
@@ -207,7 +205,7 @@ dialog.popup.stdm-popup,
     box-shadow: 0 0 12px rgba(var(--stdm-accent-rgb), 0.7);
 }
 
-/* ---------- 工具栏 ---------- */
+/* 工具栏 */
 #stdm_toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -242,7 +240,7 @@ dialog.popup.stdm-popup,
 
 #stdm_search { flex: 1 1 200px; min-width: 130px; }
 
-/* ---------- 按钮 ---------- */
+/* 按钮 */
 .stdm_btn {
     padding: 9px 14px;
     border-radius: var(--stdm-radius-sm);
@@ -268,11 +266,7 @@ dialog.popup.stdm-popup,
 }
 #stdm_delete[disabled] { background: var(--stdm-glass-hi); color: var(--stdm-text); box-shadow: none; }
 
-.stdm_btn.stdm_danger {
-    border-color: rgba(var(--stdm-danger-rgb), 0.45);
-    color: var(--stdm-danger-2);
-}
-
+.stdm_btn.stdm_danger { border-color: rgba(var(--stdm-danger-rgb), 0.45); color: var(--stdm-danger-2); }
 #stdm_undo { border-color: rgba(var(--stdm-accent-rgb), 0.4); color: var(--stdm-title-mid); }
 
 @media (hover: hover) and (pointer: fine) {
@@ -284,7 +278,7 @@ dialog.popup.stdm-popup,
     .stdm_row:hover { background: var(--stdm-glass-hi); border-color: var(--stdm-line); }
 }
 
-/* ---------- 复选框 ---------- */
+/* 复选框 */
 .stdm-root input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
@@ -317,7 +311,7 @@ dialog.popup.stdm-popup,
     transform: rotate(43deg);
 }
 
-/* ---------- 列表 ---------- */
+/* 列表 */
 #stdm_list {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -428,7 +422,7 @@ dialog.popup.stdm-popup,
     .stdm_theme_sel { flex: 1 1 auto; padding: 10px; font-size: 0.9em; }
 }
 
-/* ---------- 状态栏 ---------- */
+/* 状态栏 */
 #stdm_status {
     flex: 0 0 auto;
     padding: 10px 18px;
@@ -439,7 +433,7 @@ dialog.popup.stdm-popup,
     background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), transparent);
 }
 
-/* ---------- 编辑器 ---------- */
+/* 编辑器 */
 .stdm-editor-wrap {
     display: flex;
     flex-direction: column;
@@ -473,7 +467,7 @@ dialog.popup.stdm-popup,
 
 .stdm_editor_hint { font-size: 0.78em; opacity: 0.65; }
 
-/* ---------- 极旧版本回退浮层 ---------- */
+/* 极旧版本回退浮层 */
 .stdm-root.stdm-fallback {
     position: fixed;
     inset: 0;
@@ -483,7 +477,7 @@ dialog.popup.stdm-popup,
     height: 100dvh;
 }
 
-/* ---------- 删除历史面板 ---------- */
+/* 删除历史面板 */
 .stdm-history {
     display: flex;
     flex-direction: column;
@@ -600,6 +594,6 @@ dialog.popup.stdm-popup,
     .stdm-hist-actions .stdm_btn { flex: 1 1 auto; padding: 9px 8px; text-align: center; }
 }
 
-/* ---------- 工具类 ---------- */
+/* 工具类 */
 .stdm_flexrow { display: flex; gap: 8px; align-items: center; }
 .stdm_spacer { flex: 1 1 auto; }

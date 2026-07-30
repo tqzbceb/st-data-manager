@@ -1,12 +1,11 @@
 /**
  * 数据管家 (Data Manager) — SillyTavern 第三方 UI 扩展
  *
- * 在一个面板里批量管理：预设 / 世界书 / 角色卡 / 聊天记录 / 主题美化。
- * 功能：搜索筛选、多选批量删除、重命名、JSON 内容编辑、删除前自动备份、
- *       一键撤销，以及持久化的「删除历史」（存 IndexedDB，可随时下载/还原）。
+ * 一个面板批量管理：预设 / 世界书 / 角色卡 / 用户设定(面具) / 聊天记录 / 主题美化 / 背景图片。
+ * 功能：搜索筛选、多选批量删除、重命名、JSON 编辑、删除前自动备份、一键撤销、
+ *       持久化删除历史（IndexedDB，可下载/还原）、新建面具自动备份、可切换配色主题。
  *
- * 面板用 SillyTavern 内置 Popup 系统承载，手机酒馆里能像原生弹窗一样全屏。
- * 所有读写走官方后端 API，不直接碰文件系统，云端/服务器部署同样可用。
+ * 面板用酒馆内置 Popup 承载，手机端全屏；写操作走官方接口或前端设置对象，不直接碰文件系统。
  */
 
 const EXT_NAME = '数据管家';
@@ -94,7 +93,7 @@ function fmtTime(v) {
 }
 
 /* ------------------------------------------------------------------ *
- *  IndexedDB —— 持久化删除历史（含完整备份内容）
+ *  IndexedDB —— 持久化删除历史
  * ------------------------------------------------------------------ */
 
 const DB_NAME = 'stdm_data_manager';
@@ -175,71 +174,8 @@ async function saveHistory(tab, entries, opts = {}) {
         auto: !!opts.auto,
         entries,
     };
-    try {
-        await dbPut(rec);
-        await trimHistory();
-    } catch (e) {
-        console.warn('[数据管家] 写入历史失败', e);
-    }
-}
-
-/* ------------------------------------------------------------------ *
- *  自动备份新建的用户设定 / 面具（Persona）
- * ------------------------------------------------------------------ */
-
-let knownPersonas = null;
-
-function autoPersonaEnabled() {
-    try { return localStorage.getItem('stdm_auto_persona') !== '0'; } catch { return true; }
-}
-
-function personaSnapshot() {
-    try { return new Set(Object.keys(ctx().powerUserSettings?.personas || {})); }
-    catch { return new Set(); }
-}
-
-async function autoBackupPersona(id) {
-    try {
-        const pu = ctx().powerUserSettings || {};
-        const name = (pu.personas && pu.personas[id]) || id;
-        const item = { id, name, avatar: id };
-        const data = await adapters.personas.read(item);
-        const entry = adapters.personas.backupOf(item, data);
-        await saveHistory('personas', [entry], { auto: true });
-        toast(`已自动备份新面具：${name}`, 'success');
-    } catch (e) {
-        console.warn('[数据管家] 自动备份 persona 失败', e);
-    }
-}
-
-function watchPersonas() {
-    if (watchPersonas._done) return;
-    try {
-        const c = ctx();
-        const es = c.eventSource;
-        const et = c.eventTypes || c.event_types;
-        if (!es || !et) return;
-        watchPersonas._done = true;
-        knownPersonas = personaSnapshot();
-
-        const check = async () => {
-            if (!autoPersonaEnabled()) { knownPersonas = personaSnapshot(); return; }
-            const cur = personaSnapshot();
-            if (knownPersonas) {
-                for (const id of cur) {
-                    if (!knownPersonas.has(id)) await autoBackupPersona(id);
-                }
-            }
-            knownPersonas = cur;
-        };
-
-        for (const name of ['PERSONA_CREATED', 'PERSONA_CHANGED', 'SETTINGS_UPDATED']) {
-            if (et[name]) { try { es.on(et[name], check); } catch { /* 忽略 */ } }
-        }
-        console.log('[数据管家] 面具自动备份已启用');
-    } catch (e) {
-        console.debug('[数据管家] persona 监听初始化失败', e);
-    }
+    try { await dbPut(rec); await trimHistory(); }
+    catch (e) { console.warn('[数据管家] 写入历史失败', e); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -307,6 +243,13 @@ const adapters = {
         editable: true,
         renamable: true,
         async load() {
+            // 优先用 settings 里的 world_names（各版本通用，兼容没有 /api/worldinfo/list 的旧版）
+            try {
+                const s = await getSettings(true);
+                if (s && Array.isArray(s.world_names)) {
+                    return s.world_names.map(n => ({ id: n, name: n, group: '世界书 / 知识书', meta: '' }));
+                }
+            } catch (e) { console.warn('[数据管家] world_names 读取失败，改用 list 接口', e); }
             const list = await post('/api/worldinfo/list', {});
             const arr = Array.isArray(list) ? list : [];
             return arr.map(w => ({
@@ -347,21 +290,14 @@ const adapters = {
         },
         async fetchCardBlob(item) {
             const res = await fetch('/api/characters/export', {
-                method: 'POST',
-                headers: headers(),
+                method: 'POST', headers: headers(),
                 body: JSON.stringify({ format: 'png', avatar_url: item.avatar }),
             });
             if (!res.ok) throw new Error(`导出接口返回 ${res.status}`);
             return await res.blob();
         },
-        async read(item) {
-            const blob = await this.fetchCardBlob(item);
-            return { png: await blobToDataURL(blob) };
-        },
-        async exportBlob(item) {
-            const blob = await this.fetchCardBlob(item);
-            return { blob, filename: item.avatar };
-        },
+        async read(item) { const blob = await this.fetchCardBlob(item); return { png: await blobToDataURL(blob) }; },
+        async exportBlob(item) { const blob = await this.fetchCardBlob(item); return { blob, filename: item.avatar }; },
         backupOf(item, data) { return { name: item.name, avatar: item.avatar, png: data.png }; },
         async restore(backup) {
             const blob = dataURLToBlob(backup.png);
@@ -387,9 +323,7 @@ const adapters = {
             const personas = pu.personas || {};
             const descs = pu.persona_descriptions || {};
             return Object.keys(personas).map(id => ({
-                id,
-                name: personas[id] || id,
-                avatar: id,
+                id, name: personas[id] || id, avatar: id,
                 group: '用户设定 / 面具 (Persona)',
                 thumb: `/thumbnail?type=persona&file=${encodeURIComponent(id)}`,
                 meta: descs[id] && descs[id].description ? '含描述' : '',
@@ -483,10 +417,7 @@ const adapters = {
             const s = await getSettings(true);
             const arr = Array.isArray(s?.themes) ? s.themes : [];
             return arr.map(t => ({
-                id: t.name,
-                name: t.name,
-                group: '主题 / 美化方案',
-                inline: t,
+                id: t.name, name: t.name, group: '主题 / 美化方案', inline: t,
                 meta: t.custom_css ? '含自定义 CSS' : '',
             }));
         },
@@ -501,13 +432,104 @@ const adapters = {
         async restore(backup) { await post('/api/themes/save', { ...backup.data, name: backup.name }); },
         backupOf(item, data) { return { name: item.name, data }; },
     },
+
+    backgrounds: {
+        label: '背景图片',
+        editable: false,
+        renamable: true,
+        isBackground: true,
+        async load() {
+            const r = await post('/api/backgrounds/all', {});
+            let files = [];
+            if (Array.isArray(r)) files = r.map(x => (typeof x === 'string' ? x : x.filename));
+            else if (r && Array.isArray(r.images)) files = r.images.map(x => (typeof x === 'string' ? x : x.filename));
+            return files.filter(Boolean).map(f => ({
+                id: f, name: f, avatar: f,
+                group: '背景图片',
+                thumb: `/thumbnail?type=bg&file=${encodeURIComponent(f)}`,
+            }));
+        },
+        async fetchBlob(item) {
+            let res = await fetch(`/backgrounds/${encodeURIComponent(item.id)}`);
+            if (!res.ok) res = await fetch(`/thumbnail?type=bg&file=${encodeURIComponent(item.id)}`);
+            if (!res.ok) throw new Error(`读取背景失败 ${res.status}`);
+            return await res.blob();
+        },
+        async read(item) { return { name: item.name, img: await blobToDataURL(await this.fetchBlob(item)) }; },
+        async exportBlob(item) { return { blob: await this.fetchBlob(item), filename: item.id }; },
+        backupOf(item, data) { return { name: item.name, img: data.img }; },
+        async rename(item, newName) {
+            let nn = newName;
+            const dot = item.id.lastIndexOf('.');
+            if (dot > -1 && !/\.[a-z0-9]+$/i.test(nn)) nn += item.id.slice(dot);
+            await post('/api/backgrounds/rename', { old_bg: item.id, new_bg: nn });
+        },
+        async remove(item) { await post('/api/backgrounds/delete', { bg: item.id }); },
+        async restore(backup) {
+            const blob = dataURLToBlob(backup.img);
+            const fd = new FormData();
+            fd.append('file', blob, backup.name);
+            const res = await fetch('/api/backgrounds/upload', { method: 'POST', headers: multipartHeaders(), body: fd });
+            if (!res.ok) throw new Error(`上传返回 ${res.status}`);
+        },
+    },
 };
 
 /* ------------------------------------------------------------------ *
- *  状态
+ *  自动备份新建的用户设定 / 面具
  * ------------------------------------------------------------------ */
 
-/* 配色主题（不跟随酒馆，独立切换，记忆在本地） */
+let knownPersonas = null;
+
+function autoPersonaEnabled() {
+    try { return localStorage.getItem('stdm_auto_persona') !== '0'; } catch { return true; }
+}
+
+function personaSnapshot() {
+    try { return new Set(Object.keys(ctx().powerUserSettings?.personas || {})); }
+    catch { return new Set(); }
+}
+
+async function autoBackupPersona(id) {
+    try {
+        const pu = ctx().powerUserSettings || {};
+        const name = (pu.personas && pu.personas[id]) || id;
+        const item = { id, name, avatar: id };
+        const data = await adapters.personas.read(item);
+        const entry = adapters.personas.backupOf(item, data);
+        await saveHistory('personas', [entry], { auto: true });
+        toast(`已自动备份新面具：${name}`, 'success');
+    } catch (e) { console.warn('[数据管家] 自动备份 persona 失败', e); }
+}
+
+function watchPersonas() {
+    if (watchPersonas._done) return;
+    try {
+        const c = ctx();
+        const es = c.eventSource;
+        const et = c.eventTypes || c.event_types;
+        if (!es || !et) return;
+        watchPersonas._done = true;
+        knownPersonas = personaSnapshot();
+        const check = async () => {
+            if (!autoPersonaEnabled()) { knownPersonas = personaSnapshot(); return; }
+            const cur = personaSnapshot();
+            if (knownPersonas) {
+                for (const id of cur) if (!knownPersonas.has(id)) await autoBackupPersona(id);
+            }
+            knownPersonas = cur;
+        };
+        for (const name of ['PERSONA_CREATED', 'PERSONA_CHANGED', 'SETTINGS_UPDATED']) {
+            if (et[name]) { try { es.on(et[name], check); } catch { /* 忽略 */ } }
+        }
+        console.log('[数据管家] 面具自动备份已启用');
+    } catch (e) { console.debug('[数据管家] persona 监听初始化失败', e); }
+}
+
+/* ------------------------------------------------------------------ *
+ *  配色主题
+ * ------------------------------------------------------------------ */
+
 const THEMES = [
     { id: 'aurora', name: '星霜 Aurora' },
     { id: 'rose', name: '暗玫瑰 Rosé' },
@@ -522,6 +544,10 @@ function loadTheme() {
     } catch { /* 忽略 */ }
     return 'aurora';
 }
+
+/* ------------------------------------------------------------------ *
+ *  状态
+ * ------------------------------------------------------------------ */
 
 const state = {
     tab: 'presets',
@@ -541,7 +567,6 @@ let rootEl = null;
 
 function $(sel) { return rootEl ? rootEl.querySelector(sel) : null; }
 
-/** 切换配色主题：更新内容根 + 所有已打开的酒馆弹窗外层 */
 function applyTheme(name) {
     state.theme = name;
     try { localStorage.setItem('stdm_theme', name); } catch { /* 忽略 */ }
@@ -549,19 +574,15 @@ function applyTheme(name) {
     document.querySelectorAll('.stdm-popup').forEach(el => { el.dataset.theme = name; });
 }
 
-/** 给一个 Popup 的外层加上标记类和当前主题，让 CSS 生效 */
 function markPopup(popup) {
     try {
         const dlg = popup.dlg || popup.popup;
-        if (dlg && dlg.classList) {
-            dlg.classList.add('stdm-popup');
-            dlg.dataset.theme = state.theme;
-        }
+        if (dlg && dlg.classList) { dlg.classList.add('stdm-popup'); dlg.dataset.theme = state.theme; }
     } catch { /* 忽略 */ }
 }
 
 /* ------------------------------------------------------------------ *
- *  构建面板内容
+ *  构建面板
  * ------------------------------------------------------------------ */
 
 function buildContent() {
@@ -612,25 +633,12 @@ function buildContent() {
         visibleItems().forEach(i => state.selected.add(i.id));
         renderList();
     });
-    root.querySelector('#stdm_selnone').addEventListener('click', () => {
-        state.selected.clear();
-        renderList();
-    });
+    root.querySelector('#stdm_selnone').addEventListener('click', () => { state.selected.clear(); renderList(); });
     root.querySelector('#stdm_refresh').addEventListener('click', () => reload());
     root.querySelector('#stdm_delete').addEventListener('click', deleteSelected);
     root.querySelector('#stdm_history').addEventListener('click', openHistory);
     root.querySelector('#stdm_undo').addEventListener('click', undoLast);
     root.querySelector('#stdm_autodl').addEventListener('change', (e) => { state.autoDownload = e.target.checked; });
-
-    const themeSel = root.querySelector('#stdm_theme');
-    for (const t of THEMES) {
-        const o = document.createElement('option');
-        o.value = t.id;
-        o.textContent = t.name;
-        themeSel.appendChild(o);
-    }
-    themeSel.value = state.theme;
-    themeSel.addEventListener('change', (e) => applyTheme(e.target.value));
     root.querySelector('#stdm_charpick').addEventListener('change', (e) => {
         const opt = e.target.selectedOptions[0];
         state.avatar = e.target.value;
@@ -638,13 +646,19 @@ function buildContent() {
         reload();
     });
 
+    const themeSel = root.querySelector('#stdm_theme');
+    for (const t of THEMES) {
+        const o = document.createElement('option');
+        o.value = t.id; o.textContent = t.name;
+        themeSel.appendChild(o);
+    }
+    themeSel.value = state.theme;
+    themeSel.addEventListener('change', (e) => applyTheme(e.target.value));
+
     return root;
 }
 
-function setStatus(msg) {
-    const el = $('#stdm_status');
-    if (el) el.textContent = msg;
-}
+function setStatus(msg) { const el = $('#stdm_status'); if (el) el.textContent = msg; }
 
 function visibleItems() {
     if (!state.filter) return state.items;
@@ -665,17 +679,14 @@ function renderList() {
     const list = $('#stdm_list');
     if (!list) return;
     list.innerHTML = '';
-
     const items = visibleItems();
     if (!items.length) {
         list.innerHTML = '<div style="opacity:.6;padding:20px;text-align:center;">没有条目</div>';
         updateDeleteButton();
         return;
     }
-
     const ad = adapters[state.tab];
     let currentGroup = null;
-
     for (const item of items) {
         if (item.group !== currentGroup) {
             currentGroup = item.group;
@@ -684,7 +695,6 @@ function renderList() {
             g.textContent = currentGroup;
             list.appendChild(g);
         }
-
         const row = document.createElement('div');
         row.className = 'stdm_row';
 
@@ -721,41 +731,31 @@ function renderList() {
 
         const actions = document.createElement('div');
         actions.className = 'stdm_rowactions';
-
         if (ad.renamable) {
             const b = document.createElement('button');
-            b.className = 'stdm_btn';
-            b.textContent = '改名';
+            b.className = 'stdm_btn'; b.textContent = '改名';
             b.addEventListener('click', () => renameItem(item));
             actions.appendChild(b);
         }
         if (ad.editable) {
             const b = document.createElement('button');
-            b.className = 'stdm_btn';
-            b.textContent = '编辑';
+            b.className = 'stdm_btn'; b.textContent = '编辑';
             b.addEventListener('click', () => editItem(item));
             actions.appendChild(b);
         }
         const dl = document.createElement('button');
-        dl.className = 'stdm_btn';
-        dl.textContent = '导出';
+        dl.className = 'stdm_btn'; dl.textContent = '导出';
         dl.addEventListener('click', () => exportItem(item));
         actions.appendChild(dl);
 
         const del = document.createElement('button');
-        del.className = 'stdm_btn stdm_danger';
-        del.textContent = '删除';
-        del.addEventListener('click', () => {
-            state.selected.clear();
-            state.selected.add(item.id);
-            deleteSelected();
-        });
+        del.className = 'stdm_btn stdm_danger'; del.textContent = '删除';
+        del.addEventListener('click', () => { state.selected.clear(); state.selected.add(item.id); deleteSelected(); });
         actions.appendChild(del);
 
         row.appendChild(actions);
         list.appendChild(row);
     }
-
     updateDeleteButton();
 }
 
@@ -767,8 +767,7 @@ async function populateCharacterPicker() {
     pick.innerHTML = '';
     for (const c of state.characters) {
         const o = document.createElement('option');
-        o.value = c.avatar;
-        o.textContent = c.name || c.avatar;
+        o.value = c.avatar; o.textContent = c.name || c.avatar;
         pick.appendChild(o);
     }
     if (!state.avatar && state.characters.length) {
@@ -781,18 +780,11 @@ async function populateCharacterPicker() {
 async function switchTab(key) {
     state.tab = key;
     state.selected.clear();
-    if (rootEl) {
-        rootEl.querySelectorAll('.stdm_tab').forEach(t => {
-            t.classList.toggle('stdm_active', t.dataset.tab === key);
-        });
-    }
+    if (rootEl) rootEl.querySelectorAll('.stdm_tab').forEach(t => t.classList.toggle('stdm_active', t.dataset.tab === key));
     const pick = $('#stdm_charpick');
     const needsChar = !!adapters[key].needsCharacter;
     if (pick) pick.style.display = needsChar ? '' : 'none';
-    if (needsChar) {
-        setStatus('正在读取角色列表…');
-        await populateCharacterPicker();
-    }
+    if (needsChar) { setStatus('正在读取角色列表…'); await populateCharacterPicker(); }
     await reload();
 }
 
@@ -824,28 +816,20 @@ async function exportItem(item) {
             downloadText(`${item.name}.json`, JSON.stringify(data, null, 2));
         }
         toast(`已导出 ${item.name}`, 'success');
-    } catch (err) {
-        toast(`导出失败：${err.message}`, 'error');
-    }
+    } catch (err) { toast(`导出失败：${err.message}`, 'error'); }
 }
 
 async function renameItem(item) {
     const ad = adapters[state.tab];
     const newName = prompt(`把「${item.name}」改名为：`, item.name);
     if (!newName || newName === item.name) return;
-    if (/[\\/:*?"<>|]/.test(newName)) {
-        toast('名称不能包含 \\ / : * ? " < > | 这些字符', 'warning');
-        return;
-    }
+    if (/[\\/:*?"<>|]/.test(newName)) { toast('名称不能包含 \\ / : * ? " < > | 这些字符', 'warning'); return; }
     try {
         setStatus('改名中…');
         await ad.rename(item, newName);
         toast(`已改名为 ${newName}`, 'success');
         await reload();
-    } catch (err) {
-        toast(`改名失败：${err.message}`, 'error');
-        setStatus(`改名失败：${err.message}`);
-    }
+    } catch (err) { toast(`改名失败：${err.message}`, 'error'); setStatus(`改名失败：${err.message}`); }
 }
 
 async function editItem(item) {
@@ -857,6 +841,7 @@ async function editItem(item) {
 
     const box = document.createElement('div');
     box.className = 'stdm-root stdm-editor-wrap';
+    box.dataset.theme = state.theme;
     const ta = document.createElement('textarea');
     ta.className = 'stdm_editor_text';
     ta.spellcheck = false;
@@ -868,9 +853,7 @@ async function editItem(item) {
     box.appendChild(hint);
 
     if (c.Popup && c.POPUP_TYPE) {
-        const p = new c.Popup(box, c.POPUP_TYPE.CONFIRM, '', {
-            okButton: '保存', cancelButton: '取消', wide: true, large: true, allowVerticalScrolling: false,
-        });
+        const p = new c.Popup(box, c.POPUP_TYPE.CONFIRM, '', { okButton: '保存', cancelButton: '取消', wide: true, large: true, allowVerticalScrolling: false });
         markPopup(p);
         const result = await p.show();
         const affirmative = c.POPUP_RESULT ? c.POPUP_RESULT.AFFIRMATIVE : 1;
@@ -882,7 +865,6 @@ async function editItem(item) {
         catch (err) { toast(`保存失败：${err.message}`, 'error'); }
         return;
     }
-
     const edited = prompt('编辑 JSON：', ta.value);
     if (edited == null) return;
     let parsed;
@@ -892,40 +874,32 @@ async function editItem(item) {
     catch (err) { toast(`保存失败：${err.message}`, 'error'); }
 }
 
-/** 把一批备份打包成单个文件下载（避免浏览器多文件下载拦截） */
+/** 把一批备份打包成单个文件下载（避免浏览器多文件拦截） */
 async function downloadArchive(tab, entries) {
     const label = adapters[tab] ? adapters[tab].label : tab;
-
-    if (tab === 'characters') {
+    if (tab === 'characters' || tab === 'backgrounds') {
+        const pick = (e, i) => tab === 'characters'
+            ? { name: e.avatar || `${e.name || 'character'}_${i}.png`, url: e.png }
+            : { name: e.name || `bg_${i}.png`, url: e.img };
         const JSZipRef = (typeof window !== 'undefined' && window.JSZip) || ctx()?.JSZip || null;
         if (JSZipRef) {
             try {
                 const zip = new JSZipRef();
-                entries.forEach((e, i) => {
-                    const fname = e.avatar || `${e.name || 'character'}_${i}.png`;
-                    zip.file(fname, dataURLToBlob(e.png));
-                });
+                entries.forEach((e, i) => { const f = pick(e, i); if (f.url) zip.file(f.name, dataURLToBlob(f.url)); });
                 const blob = await zip.generateAsync({ type: 'blob' });
-                downloadBlob(`备份_角色卡_${stamp()}.zip`, blob);
+                downloadBlob(`备份_${label}_${stamp()}.zip`, blob);
                 return;
-            } catch (err) {
-                console.warn('[数据管家] zip 打包失败，改用 JSON 备份', err);
-            }
+            } catch (err) { console.warn('[数据管家] zip 打包失败，改用 JSON 备份', err); }
         }
-        downloadText(`备份_角色卡_${stamp()}.json`, JSON.stringify({ tab, time: new Date().toISOString(), entries }, null, 2));
+        downloadText(`备份_${label}_${stamp()}.json`, JSON.stringify({ tab, time: new Date().toISOString(), entries }, null, 2));
         return;
     }
-
     downloadText(`备份_${label}_${stamp()}.json`, JSON.stringify({ tab, time: new Date().toISOString(), entries }, null, 2));
 }
 
-/** 还原一批备份 */
 async function restoreEntries(tab, entries) {
     const ad = adapters[tab];
-    if (!ad || typeof ad.restore !== 'function') {
-        toast('该类型不支持自动还原，请手动导入备份文件', 'warning');
-        return;
-    }
+    if (!ad || typeof ad.restore !== 'function') { toast('该类型不支持自动还原，请手动导入备份文件', 'warning'); return; }
     let ok = 0, fail = 0;
     for (const entry of entries) {
         try { await ad.restore(entry); ok++; } catch (e) { console.error(e); fail++; }
@@ -944,10 +918,10 @@ async function deleteSelected() {
     let deleteChats = false;
 
     if (ad.isCharacter) {
-        const backupNote = state.autoDownload
+        const note = state.autoDownload
             ? '删除前会把这些卡打包成一个备份文件下载到本地，并写入「历史」，可随时还原。'
             : '你已关闭「删除时下载备份」，不会保存备份文件；但仍会写入「历史」，之后可从历史里下载或还原。';
-        if (!confirm(`确定删除 ${targets.length} 个角色卡？\n\n${names}${more}\n\n${backupNote}`)) return;
+        if (!confirm(`确定删除 ${targets.length} 个角色卡？\n\n${names}${more}\n\n${note}`)) return;
         deleteChats = confirm('同时删除这些角色的聊天记录吗？\n\n确定 = 一并删除；取消 = 保留聊天记录。');
     } else {
         if (!confirm(`确定删除 ${targets.length} 项？\n\n${names}${more}\n\n删除前会自动备份到「历史」，可随时下载或还原。`)) return;
@@ -963,9 +937,8 @@ async function deleteSelected() {
         try {
             if (canBackup) {
                 let data;
-                try {
-                    data = await ad.read(item);
-                } catch (e) {
+                try { data = await ad.read(item); }
+                catch (e) {
                     console.error('备份失败，跳过删除', item.name, e);
                     skipped++;
                     toast(`「${item.name}」备份失败，已跳过删除`, 'warning');
@@ -975,20 +948,13 @@ async function deleteSelected() {
             }
             await ad.remove(item, { deleteChats });
             ok++;
-        } catch (err) {
-            console.error(err);
-            fail++;
-            toast(`删除「${item.name}」失败：${err.message}`, 'error');
-        }
+        } catch (err) { console.error(err); fail++; toast(`删除「${item.name}」失败：${err.message}`, 'error'); }
     }
 
     if (entries.length) {
         state.lastBatch = { tab: state.tab, entries };
         const undo = $('#stdm_undo');
-        if (undo) {
-            undo.disabled = false;
-            undo.textContent = `↩ 撤销上次删除 (${entries.length})`;
-        }
+        if (undo) { undo.disabled = false; undo.textContent = `↩ 撤销上次删除 (${entries.length})`; }
         await saveHistory(state.tab, entries);
         if (state.autoDownload) {
             try { await downloadArchive(state.tab, entries); }
@@ -1023,14 +989,11 @@ async function renderHistory(container) {
     const listEl = container.querySelector('.stdm-hist-list');
     if (!listEl) return;
     listEl.textContent = '加载中…';
-
     let all;
     try { all = await dbGetAll(); }
     catch (e) { listEl.textContent = '读取历史失败：' + e.message; return; }
-
     all.sort((a, b) => b.id - a.id);
     listEl.innerHTML = '';
-
     if (!all.length) {
         const empty = document.createElement('div');
         empty.className = 'stdm-empty';
@@ -1038,14 +1001,11 @@ async function renderHistory(container) {
         listEl.appendChild(empty);
         return;
     }
-
     for (const rec of all) {
         const row = document.createElement('div');
         row.className = 'stdm-hist-row';
-
         const info = document.createElement('div');
         info.className = 'stdm-hist-info';
-
         const top = document.createElement('div');
         top.className = 'stdm-hist-top';
         const badge = document.createElement('span');
@@ -1077,32 +1037,25 @@ async function renderHistory(container) {
 
         const acts = document.createElement('div');
         acts.className = 'stdm-hist-actions';
-
         const dl = document.createElement('button');
-        dl.className = 'stdm_btn';
-        dl.textContent = '下载备份';
+        dl.className = 'stdm_btn'; dl.textContent = '下载备份';
         dl.addEventListener('click', async () => {
             try { await downloadArchive(rec.tab, rec.entries); toast('已下载备份', 'success'); }
             catch (e) { toast('下载失败：' + e.message, 'error'); }
         });
-
         const rs = document.createElement('button');
-        rs.className = 'stdm_btn';
-        rs.textContent = '还原';
+        rs.className = 'stdm_btn'; rs.textContent = '还原';
         rs.addEventListener('click', async () => {
             if (!confirm(`把这 ${rec.count} 项还原到「${rec.label}」？`)) return;
             await restoreEntries(rec.tab, rec.entries);
         });
-
         const rm = document.createElement('button');
-        rm.className = 'stdm_btn stdm_danger';
-        rm.textContent = '删除记录';
+        rm.className = 'stdm_btn stdm_danger'; rm.textContent = '删除记录';
         rm.addEventListener('click', async () => {
             if (!confirm('删除这条历史记录？其中的备份内容会一并移除，不可恢复。')) return;
             try { await dbDelete(rec.id); await renderHistory(container); }
             catch (e) { toast('删除失败：' + e.message, 'error'); }
         });
-
         acts.append(dl, rs, rm);
         row.appendChild(acts);
         listEl.appendChild(row);
@@ -1113,6 +1066,7 @@ async function openHistory() {
     const c = ctx();
     const box = document.createElement('div');
     box.className = 'stdm-root stdm-history';
+    box.dataset.theme = state.theme;
 
     const head = document.createElement('div');
     head.className = 'stdm-hist-head';
@@ -1131,25 +1085,19 @@ async function openHistory() {
 
     const list = document.createElement('div');
     list.className = 'stdm-hist-list';
-
     const foot = document.createElement('div');
     foot.className = 'stdm-hist-foot';
     foot.textContent = '历史与备份保存在本浏览器（IndexedDB），换设备或清理浏览器数据会丢失。';
-
     box.append(head, list, foot);
 
     if (c.Popup && c.POPUP_TYPE) {
-        const p = new c.Popup(box, c.POPUP_TYPE.TEXT, '', {
-            okButton: '关闭', wide: true, large: true, allowVerticalScrolling: false,
-        });
+        const p = new c.Popup(box, c.POPUP_TYPE.TEXT, '', { okButton: '关闭', wide: true, large: true, allowVerticalScrolling: false });
         p.show();
         markPopup(p);
     } else {
         box.classList.add('stdm-fallback');
-        box.dataset.theme = state.theme;
         document.body.appendChild(box);
     }
-
     await renderHistory(box);
 }
 
@@ -1160,13 +1108,9 @@ async function openHistory() {
 async function openModal() {
     const c = ctx();
     const content = buildContent();
-
     if (c.Popup && c.POPUP_TYPE) {
         currentPopup = new c.Popup(content, c.POPUP_TYPE.TEXT, '', {
-            okButton: '关闭',
-            wide: true,
-            large: true,
-            allowVerticalScrolling: false,
+            okButton: '关闭', wide: true, large: true, allowVerticalScrolling: false,
             onClose: () => { rootEl = null; currentPopup = null; },
         });
         currentPopup.show();
@@ -1207,7 +1151,7 @@ function mount() {
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
-            <p style="font-size:.85em;opacity:.8;">批量管理预设、世界书、角色卡、聊天记录、用户设定(面具)和主题美化方案。删除前自动备份，可一键撤销或从历史还原。</p>
+            <p style="font-size:.85em;opacity:.8;">批量管理预设、世界书、角色卡、用户设定(面具)、聊天记录、主题美化和背景图片。删除前自动备份，可一键撤销或从历史还原。</p>
             <label class="checkbox_label" style="margin:6px 0;">
                 <input type="checkbox" id="stdm_auto_persona_chk">
                 <span>新建用户设定(面具)时自动备份</span>
@@ -1222,7 +1166,7 @@ function mount() {
         apc.checked = autoPersonaEnabled();
         apc.addEventListener('change', (e) => {
             try { localStorage.setItem('stdm_auto_persona', e.target.checked ? '1' : '0'); } catch { /* 忽略 */ }
-            if (e.target.checked) { knownPersonas = personaSnapshot(); }
+            if (e.target.checked) knownPersonas = personaSnapshot();
             toast(e.target.checked ? '已开启：新建面具时自动备份' : '已关闭面具自动备份', 'info');
         });
     }
@@ -1240,18 +1184,14 @@ function registerSlashCommand() {
             helpString: '打开数据管家面板',
             callback: () => { openModal(); return ''; },
         }));
-    } catch (e) {
-        console.debug('[数据管家] 斜杠命令注册跳过', e);
-    }
+    } catch (e) { console.debug('[数据管家] 斜杠命令注册跳过', e); }
 }
 
 function initPersonaWatch() {
     try {
         const c = ctx();
         const et = c.eventTypes || c.event_types;
-        if (c.eventSource && et && et.APP_READY) {
-            c.eventSource.on(et.APP_READY, watchPersonas);
-        }
+        if (c.eventSource && et && et.APP_READY) c.eventSource.on(et.APP_READY, watchPersonas);
     } catch { /* 忽略 */ }
     setTimeout(watchPersonas, 4000);
     setTimeout(watchPersonas, 12000);
@@ -1265,9 +1205,6 @@ function initPersonaWatch() {
         setTimeout(mount, 3000);
         console.log('[数据管家] 已加载');
     };
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
-    } else {
-        start();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
 })();
