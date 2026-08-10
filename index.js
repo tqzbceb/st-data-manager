@@ -546,6 +546,10 @@ const THEMES = [
     { id: 'rose', name: '暗玫瑰 Rosé' },
     { id: 'teal', name: '深海 Teal' },
     { id: 'amber', name: '琥珀 Amber' },
+    { id: 'midnight', name: '暗夜 Midnight' },
+    { id: 'mint', name: '薄荷 Mint' },
+    { id: 'graphite', name: '石墨 Graphite' },
+    { id: 'sakura', name: '樱粉 Sakura' },
 ];
 
 function loadTheme() {
@@ -603,13 +607,13 @@ function buildContent() {
     root.dataset.theme = state.theme;
     root.innerHTML = `
         <div id="stdm_header">
-            <span class="stdm_title">🗂️ ${EXT_NAME}</span>
+            <span class="stdm_title">${EXT_NAME}</span>
             <select id="stdm_theme" class="stdm_theme_sel" title="配色主题"></select>
             <label class="stdm_flexrow">
                 <input type="checkbox" id="stdm_autodl" checked> 删除时下载备份
             </label>
-            <button class="stdm_btn" id="stdm_history">🕘 历史</button>
-            <button class="stdm_btn" id="stdm_undo" disabled>↩ 撤销上次删除</button>
+            <button class="stdm_btn" id="stdm_history">历史</button>
+            <button class="stdm_btn" id="stdm_undo" disabled>撤销</button>
         </div>
         <div id="stdm_tabs"></div>
         <div id="stdm_toolbar">
@@ -965,7 +969,7 @@ async function deleteSelected() {
     if (entries.length) {
         state.lastBatch = { tab: state.tab, entries };
         const undo = $('#stdm_undo');
-        if (undo) { undo.disabled = false; undo.textContent = `↩ 撤销上次删除 (${entries.length})`; }
+        if (undo) { undo.disabled = false; undo.textContent = `撤销 (${entries.length})`; }
         await saveHistory(state.tab, entries);
         if (state.autoDownload) {
             try { await downloadArchive(state.tab, entries); }
@@ -989,7 +993,7 @@ async function undoLast() {
     await restoreEntries(tab, entries);
     state.lastBatch = null;
     const undo = $('#stdm_undo');
-    if (undo) { undo.disabled = true; undo.textContent = '↩ 撤销上次删除'; }
+    if (undo) { undo.disabled = true; undo.textContent = '撤销'; }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1083,7 +1087,7 @@ async function openHistory() {
     head.className = 'stdm-hist-head';
     const title = document.createElement('span');
     title.className = 'stdm-hist-title';
-    title.textContent = '🕘 删除历史';
+    title.textContent = '删除历史';
     const clear = document.createElement('button');
     clear.className = 'stdm_btn stdm_danger';
     clear.textContent = '清空全部';
@@ -1158,7 +1162,7 @@ function mount() {
         block.className = 'inline-drawer';
         block.innerHTML = `
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b>🗂️ 数据管家</b>
+            <b>数据管家</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
