@@ -2,6 +2,12 @@
 
 本项目遵循语义化版本，最新版本在最上方。
 
+## v1.6.1
+
+修复
+
+- **TauriTavern 上世界书列表读不到**:TauriTavern 没有 `/api/worldinfo/list` 接口,且部分场景下 `settings.world_names` 为空导致 fallback 404。现在世界书列表**优先走前端 context 的 `getWorldInfoNames()`**(官方 ST 与 TauriTavern 都暴露),其次才用 `settings.world_names`,最后才是 list 接口,三条链路逐级兜底。
+
 ## v1.6.0
 
 新增

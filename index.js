@@ -243,13 +243,24 @@ const adapters = {
         editable: true,
         renamable: true,
         async load() {
-            // 优先用 settings 里的 world_names（各版本通用，兼容没有 /api/worldinfo/list 的旧版）
+            // 优先走前端 context 的 getWorldInfoNames(官方 ST 与 TauriTavern 都支持;
+            // TauriTavern 没有 /api/worldinfo/list 接口,直接调会 404)
+            try {
+                const c = ctx();
+                if (typeof c.getWorldInfoNames === 'function') {
+                    const names = c.getWorldInfoNames();
+                    if (Array.isArray(names)) {
+                        return names.map(n => ({ id: n, name: n, group: '世界书 / 知识书', meta: '' }));
+                    }
+                }
+            } catch (e) { console.warn('[数据管家] getWorldInfoNames 读取失败', e); }
+            // 其次用 settings 里的 world_names(兼容没有 getWorldInfoNames 的旧版)
             try {
                 const s = await getSettings(true);
                 if (s && Array.isArray(s.world_names)) {
                     return s.world_names.map(n => ({ id: n, name: n, group: '世界书 / 知识书', meta: '' }));
                 }
-            } catch (e) { console.warn('[数据管家] world_names 读取失败，改用 list 接口', e); }
+            } catch (e) { console.warn('[数据管家] world_names 读取失败,改用 list 接口', e); }
             const list = await post('/api/worldinfo/list', {});
             const arr = Array.isArray(list) ? list : [];
             return arr.map(w => ({
