@@ -143,6 +143,28 @@ dialog.popup.stdm-popup,
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
     flex-wrap: wrap;
+    transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+    max-height: 120px;
+    overflow: hidden;
+}
+
+/* 上滑时收起 header/tabs/toolbar */
+.stdm-root.stdm_collapsed_top #stdm_header,
+.stdm-root.stdm_collapsed_top #stdm_tabs,
+.stdm-root.stdm_collapsed_top #stdm_toolbar {
+    max-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    border-bottom: none;
+    pointer-events: none;
+}
+
+/* tabs/toolbar 也加 transition,与 header 同步动画 */
+#stdm_tabs, #stdm_toolbar {
+    transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+    max-height: 120px;
+    overflow: hidden;
 }
 
 #stdm_header .stdm_title {
@@ -367,6 +389,36 @@ dialog.popup.stdm-popup,
     background: var(--stdm-bg);
     z-index: 2;
     border-bottom: 1px solid var(--stdm-border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 可折叠分组 */
+.stdm_group.stdm_group-collapsible {
+    cursor: pointer;
+    user-select: none;
+}
+.stdm_group.stdm_group-collapsible:hover { color: var(--stdm-text-2); }
+
+.stdm_group_arrow {
+    font-size: 10px;
+    transition: transform 0.18s ease;
+    color: var(--stdm-text-3);
+}
+.stdm_group.stdm_collapsed .stdm_group_arrow { transform: rotate(-90deg); }
+
+.stdm_group_count {
+    margin-left: auto;
+    font-weight: 500;
+    color: var(--stdm-text-3);
+    background: var(--stdm-bg-hover);
+    border: 1px solid var(--stdm-border);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 /* 行 */

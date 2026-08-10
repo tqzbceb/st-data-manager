@@ -207,7 +207,11 @@ const adapters = {
         async load() {
             const s = await getSettings(true);
             const items = [];
+            // 默认折叠除"聊天补全预设"外的所有分组
+            const DEFAULT_OPEN = '聊天补全预设 (OpenAI/Claude 等)';
+            state.collapsedGroups = new Set();
             for (const kind of PRESET_KINDS) {
+                if (kind.label !== DEFAULT_OPEN) state.collapsedGroups.add(kind.label);
                 if (kind.objectsKey) {
                     const arr = Array.isArray(s?.[kind.objectsKey]) ? s[kind.objectsKey] : [];
                     for (const obj of arr) {
@@ -224,6 +228,7 @@ const adapters = {
                     });
                 }
             }
+            state.collapseEnabled = true;
             return items;
         },
         async read(item) { return item.inline ?? {}; },
@@ -554,13 +559,13 @@ function watchPersonas() {
  * ------------------------------------------------------------------ */
 
 const THEMES = [
-    { id: 'claude', name: 'Claude(默认)' },
-    { id: 'sage', name: '鼠尾草 Sage' },
-    { id: 'ocean', name: '海蓝 Ocean' },
-    { id: 'lavender', name: '薰衣草 Lavender' },
-    { id: 'rose', name: '蔷薇 Rose' },
-    { id: 'amber', name: '琥珀 Amber' },
-    { id: 'mono', name: '单色 Mono' },
+    { id: 'claude', name: '默认' },
+    { id: 'sage', name: '鼠尾草' },
+    { id: 'ocean', name: '海蓝' },
+    { id: 'lavender', name: '薰衣草' },
+    { id: 'rose', name: '蔷薇' },
+    { id: 'amber', name: '琥珀' },
+    { id: 'mono', name: '单色' },
 ];
 
 function loadTheme() {
@@ -586,6 +591,10 @@ const state = {
     lastBatch: null,
     autoDownload: true,
     theme: loadTheme(),
+    // 记录被折叠的分组名(Set)
+    collapsedGroups: new Set(),
+    // 是否需要按分组折叠(仅预设 tab 用)
+    collapseEnabled: false,
 };
 
 let currentPopup = null;
@@ -672,6 +681,20 @@ function buildContent() {
         reload();
     });
 
+    // 上下滑收起/展开 header+tabs+toolbar:向上滑收,向下滑展
+    const listEl = root.querySelector('#stdm_list');
+    let lastScrollTop = 0;
+    let hideThreshold = 30; // 滑动超过这个距离才切换,防抖动
+    listEl.addEventListener('scroll', () => {
+        const cur = listEl.scrollTop;
+        if (cur > lastScrollTop + hideThreshold && cur > 60) {
+            root.classList.add('stdm_collapsed_top');
+        } else if (cur < lastScrollTop - hideThreshold || cur <= 10) {
+            root.classList.remove('stdm_collapsed_top');
+        }
+        lastScrollTop = cur;
+    }, { passive: true });
+
     const themeSel = root.querySelector('#stdm_theme');
     for (const t of THEMES) {
         const o = document.createElement('option');
@@ -718,9 +741,29 @@ function renderList() {
             currentGroup = item.group;
             const g = document.createElement('div');
             g.className = 'stdm_group';
-            g.textContent = currentGroup;
+            // 预设页:支持折叠分组
+            if (state.collapseEnabled) {
+                g.classList.add('stdm_group-collapsible');
+                const isCollapsed = state.collapsedGroups.has(currentGroup);
+                g.classList.toggle('stdm_collapsed', isCollapsed);
+                // 统计该组条目数
+                const count = items.filter(x => x.group === currentGroup).length;
+                g.innerHTML = `<i class="fa-solid fa-chevron-down stdm_group_arrow"></i><span>${currentGroup}</span><span class="stdm_group_count">${count}</span>`;
+                g.addEventListener('click', () => {
+                    if (state.collapsedGroups.has(currentGroup)) {
+                        state.collapsedGroups.delete(currentGroup);
+                    } else {
+                        state.collapsedGroups.add(currentGroup);
+                    }
+                    renderList();
+                });
+            } else {
+                g.textContent = currentGroup;
+            }
             list.appendChild(g);
         }
+        // 折叠的分组跳过条目
+        if (state.collapseEnabled && state.collapsedGroups.has(item.group)) continue;
         const row = document.createElement('div');
         row.className = 'stdm_row';
 
@@ -821,16 +864,18 @@ async function switchTab(key) {
 
 async function reload() {
     const ad = adapters[state.tab];
-    setStatus('加载中…');
+    setStatus('加载中...');
     try {
+        // 除预设外,其他 tab 不折叠分组
+        state.collapseEnabled = (state.tab === 'presets');
         state.items = await ad.load(state);
         state.selected.clear();
         renderList();
         setStatus(`共 ${state.items.length} 条`);
     } catch (err) {
         console.error(err);
-        setStatus(`加载失败：${err.message}`);
-        toast(`加载失败：${err.message}`, 'error');
+        setStatus(`加载失败:${err.message}`);
+        toast(`加载失败:${err.message}`, 'error');
     }
 }
 
