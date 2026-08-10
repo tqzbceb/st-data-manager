@@ -683,17 +683,23 @@ function buildContent() {
         reload();
     });
 
-    // 只有拉到列表最顶部时才展开 header;一旦向下滚就收起
+    // 只有拉到列表最顶部时才展开顶部(延迟 250ms);一旦向下滚立即收起
     const listEl = root.querySelector('#stdm_list');
+    let expandTimer = null;
     const setCollapsed = (collapsed) => {
-        const has = root.classList.contains('stdm_collapsed_top');
-        if (collapsed && !has) root.classList.add('stdm_collapsed_top');
-        else if (!collapsed && has) root.classList.remove('stdm_collapsed_top');
+        root.classList.toggle('stdm_collapsed_top', collapsed);
     };
     listEl.addEventListener('scroll', () => {
-        // 滚动位置 > 20px 就收起,回到顶部 (<=10) 才展开
-        if (listEl.scrollTop > 20) setCollapsed(true);
-        else if (listEl.scrollTop <= 10) setCollapsed(false);
+        if (listEl.scrollTop > 20) {
+            if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
+            setCollapsed(true);
+        } else if (listEl.scrollTop <= 10) {
+            if (expandTimer) clearTimeout(expandTimer);
+            expandTimer = setTimeout(() => {
+                expandTimer = null;
+                if (listEl.scrollTop <= 10) setCollapsed(false);
+            }, 250);
+        }
     }, { passive: true });
 
     const themeSel = root.querySelector('#stdm_theme');
@@ -728,7 +734,7 @@ function updateDeleteButton() {
 function renderList() {
     const list = $('#stdm_list');
     if (!list) return;
-    // 记录当前滚动位置,渲染完后恢复,避免展开分组时被弹回顶部
+    // 记录当前滚动位置,渲染完后恢复
     const prevScroll = list.scrollTop;
     list.innerHTML = '';
     const items = visibleItems();
@@ -739,7 +745,7 @@ function renderList() {
     }
     const ad = adapters[state.tab];
 
-    // 预设页:过滤掉空分组,不显示
+    // 预设页:过滤掉空分组
     let groupsToShow = null;
     if (state.collapseEnabled) {
         const groupCounts = new Map();
@@ -747,34 +753,7 @@ function renderList() {
         groupsToShow = new Set([...groupCounts.entries()].filter(([, n]) => n > 0).map(([g]) => g));
     }
 
-    let currentGroup = null;
-    for (const item of items) {
-        // 空分组跳过
-        if (groupsToShow && !groupsToShow.has(item.group)) continue;
-        if (item.group !== currentGroup) {
-            currentGroup = item.group;
-            const g = document.createElement('div');
-            g.className = 'stdm_group';
-            if (state.collapseEnabled) {
-                g.classList.add('stdm_group-collapsible');
-                const isCollapsed = state.collapsedGroups.has(currentGroup);
-                g.classList.toggle('stdm_collapsed', isCollapsed);
-                const count = items.filter(x => x.group === currentGroup).length;
-                g.innerHTML = `<i class="fa-solid fa-chevron-down stdm_group_arrow"></i><span>${currentGroup}</span><span class="stdm_group_count">${count}</span>`;
-                g.addEventListener('click', () => {
-                    if (state.collapsedGroups.has(currentGroup)) {
-                        state.collapsedGroups.delete(currentGroup);
-                    } else {
-                        state.collapsedGroups.add(currentGroup);
-                    }
-                    renderList();
-                });
-            } else {
-                g.textContent = currentGroup;
-            }
-            list.appendChild(g);
-        }
-        if (state.collapseEnabled && state.collapsedGroups.has(item.group)) continue;
+    const mkRow = (item) => {
         const row = document.createElement('div');
         row.className = 'stdm_row';
 
@@ -834,9 +813,57 @@ function renderList() {
         actions.appendChild(mkIconBtn('fa-trash-can', '删除', 'stdm_danger', () => { state.selected.clear(); state.selected.add(item.id); deleteSelected(); }));
 
         row.appendChild(actions);
-        list.appendChild(row);
+        return row;
+    };
+
+    // 折叠模式:按分组渲染,每组一个标题 + 一个条目容器,点击就地切换
+    if (state.collapseEnabled) {
+        const byGroup = new Map();
+        for (const item of items) {
+            if (groupsToShow && !groupsToShow.has(item.group)) continue;
+            if (!byGroup.has(item.group)) byGroup.set(item.group, []);
+            byGroup.get(item.group).push(item);
+        }
+        for (const [groupName, groupItems] of byGroup) {
+            const g = document.createElement('div');
+            g.className = 'stdm_group stdm_group-collapsible';
+            const isCollapsed = state.collapsedGroups.has(groupName);
+            g.classList.toggle('stdm_collapsed', isCollapsed);
+            g.innerHTML = `<i class="fa-solid fa-chevron-down stdm_group_arrow"></i><span>${groupName}</span><span class="stdm_group_count">${groupItems.length}</span>`;
+            list.appendChild(g);
+
+            const container = document.createElement('div');
+            container.className = 'stdm_group_body';
+            if (isCollapsed) container.style.display = 'none';
+            for (const item of groupItems) container.appendChild(mkRow(item));
+            list.appendChild(container);
+
+            // 就地切换,不重建列表,不抽搐不跳位置
+            g.addEventListener('click', () => {
+                const nowCollapsed = container.style.display === 'none';
+                container.style.display = nowCollapsed ? '' : 'none';
+                g.classList.toggle('stdm_collapsed', !nowCollapsed);
+                if (nowCollapsed) state.collapsedGroups.delete(groupName);
+                else state.collapsedGroups.add(groupName);
+            });
+        }
+        list.scrollTop = prevScroll;
+        updateDeleteButton();
+        return;
     }
-    // 恢复滚动位置
+
+    // 普通模式(其他 tab):原有平铺渲染
+    let currentGroup = null;
+    for (const item of items) {
+        if (item.group !== currentGroup) {
+            currentGroup = item.group;
+            const g = document.createElement('div');
+            g.className = 'stdm_group';
+            g.textContent = currentGroup;
+            list.appendChild(g);
+        }
+        list.appendChild(mkRow(item));
+    }
     list.scrollTop = prevScroll;
     updateDeleteButton();
 }
