@@ -626,24 +626,26 @@ function buildContent() {
     root.className = 'stdm-root';
     root.dataset.theme = state.theme;
     root.innerHTML = `
-        <div id="stdm_header">
-            <span class="stdm_title">${EXT_NAME}</span>
-            <select id="stdm_theme" class="stdm_theme_sel" title="配色主题"></select>
-            <label class="stdm_flexrow">
-                <input type="checkbox" id="stdm_autodl" checked> 删除时下载备份
-            </label>
-            <button class="stdm_btn" id="stdm_history" title="删除历史"><i class="fa-solid fa-clock-rotate-left"></i> 历史</button>
-            <button class="stdm_btn" id="stdm_undo" disabled title="撤销上次删除"><i class="fa-solid fa-rotate-left"></i> 撤销</button>
-        </div>
-        <div id="stdm_tabs"></div>
-        <div id="stdm_toolbar">
-            <select id="stdm_charpick" style="display:none;"></select>
-            <input type="text" id="stdm_search" placeholder="搜索名称...">
-            <button class="stdm_btn" id="stdm_selall" title="全选"><i class="fa-solid fa-check-double"></i></button>
-            <button class="stdm_btn" id="stdm_selnone" title="清空选择"><i class="fa-solid fa-xmark"></i></button>
-            <button class="stdm_btn" id="stdm_refresh" title="刷新列表"><i class="fa-solid fa-rotate"></i></button>
-            <span class="stdm_spacer"></span>
-            <button class="stdm_btn" id="stdm_delete"><i class="fa-solid fa-trash-can"></i> 删除选中 (0)</button>
+        <div class="stdm_top_wrap">
+            <div id="stdm_header">
+                <span class="stdm_title">${EXT_NAME}</span>
+                <select id="stdm_theme" class="stdm_theme_sel" title="配色主题"></select>
+                <label class="stdm_flexrow">
+                    <input type="checkbox" id="stdm_autodl" checked> 删除时下载备份
+                </label>
+                <button class="stdm_btn" id="stdm_history" title="删除历史"><i class="fa-solid fa-clock-rotate-left"></i> 历史</button>
+                <button class="stdm_btn" id="stdm_undo" disabled title="撤销上次删除"><i class="fa-solid fa-rotate-left"></i> 撤销</button>
+            </div>
+            <div id="stdm_tabs"></div>
+            <div id="stdm_toolbar">
+                <select id="stdm_charpick" style="display:none;"></select>
+                <input type="text" id="stdm_search" placeholder="搜索名称...">
+                <button class="stdm_btn" id="stdm_selall" title="全选"><i class="fa-solid fa-check-double"></i></button>
+                <button class="stdm_btn" id="stdm_selnone" title="清空选择"><i class="fa-solid fa-xmark"></i></button>
+                <button class="stdm_btn" id="stdm_refresh" title="刷新列表"><i class="fa-solid fa-rotate"></i></button>
+                <span class="stdm_spacer"></span>
+                <button class="stdm_btn" id="stdm_delete"><i class="fa-solid fa-trash-can"></i> 删除选中 (0)</button>
+            </div>
         </div>
         <div id="stdm_list"></div>
         <div id="stdm_status"></div>`;

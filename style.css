@@ -139,17 +139,23 @@ dialog.popup.stdm-popup,
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    flex: 0 0 auto;
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
     flex-wrap: wrap;
 }
 
-/* 上滑时收起 header/tabs/toolbar — 直接 display:none,最可靠 */
-.stdm-root.stdm_collapsed_top #stdm_header,
-.stdm-root.stdm_collapsed_top #stdm_tabs,
-.stdm-root.stdm_collapsed_top #stdm_toolbar {
-    display: none !important;
+/* 把 header/tabs/toolbar 包进一个可折叠容器 */
+.stdm_top_wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    max-height: 300px;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stdm-root.stdm_collapsed_top .stdm_top_wrap {
+    max-height: 0;
 }
 
 #stdm_header .stdm_title {
@@ -369,27 +375,29 @@ dialog.popup.stdm-popup,
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--stdm-text-3);
-    position: sticky;
-    top: 0;
     background: var(--stdm-bg);
-    z-index: 2;
     border-bottom: 1px solid var(--stdm-border);
     display: flex;
     align-items: center;
     gap: 6px;
+    user-select: none;
 }
 
 /* 可折叠分组 */
 .stdm_group.stdm_group-collapsible {
     cursor: pointer;
-    user-select: none;
+    transition: color 0.15s;
 }
-.stdm_group.stdm_group-collapsible:hover { color: var(--stdm-text-2); }
+.stdm_group.stdm_group-collapsible:hover { color: var(--stdm-text); }
+.stdm_group.stdm_group-collapsible:active { color: var(--stdm-accent-text); }
 
 .stdm_group_arrow {
     font-size: 10px;
-    transition: transform 0.18s ease;
+    transition: transform 0.2s ease;
     color: var(--stdm-text-3);
+    display: inline-block;
+    width: 12px;
+    text-align: center;
 }
 .stdm_group.stdm_collapsed .stdm_group_arrow { transform: rotate(-90deg); }
 
@@ -404,6 +412,12 @@ dialog.popup.stdm-popup,
     font-size: 10px;
     text-transform: none;
     letter-spacing: 0;
+}
+
+/* 折叠分组的条目用 max-height 动画 */
+.stdm_row {
+    /* 已经在前面定义,这里补 transition 用于折叠展开 */
+    transition: background 0.12s;
 }
 
 /* 行 */
