@@ -432,7 +432,9 @@ dialog.popup.stdm-popup,
     border-bottom: 1px solid var(--stdm-border);
     transition: background 0.12s;
     position: relative;
+    width: 100%;
     min-width: 0;
+    color: var(--stdm-text);
 }
 
 .stdm_row:hover { background: var(--stdm-bg-hover); }
@@ -453,7 +455,10 @@ dialog.popup.stdm-popup,
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    flex: 0 0 auto;
 }
 
 .stdm_avatar {
@@ -467,7 +472,8 @@ dialog.popup.stdm-popup,
 
 /* 关键:名字用 white-space:nowrap + flex:1 + min-width:0 + overflow hidden 保证中文一行显示且超出省略 */
 .stdm_name {
-    flex: 1 1 0;
+    display: block;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -475,7 +481,7 @@ dialog.popup.stdm-popup,
     word-break: keep-all;
     font-size: 13px;
     font-weight: 500;
-    color: var(--stdm-text);
+    color: var(--stdm-text) !important;
 }
 
 .stdm_meta {
@@ -495,6 +501,7 @@ dialog.popup.stdm-popup,
     display: flex;
     gap: 2px;
     justify-content: flex-end;
+    width: 100%;
     padding-left: 23px;
     opacity: 0;
     transition: opacity 0.12s;
