@@ -2,6 +2,16 @@
 
 本项目遵循语义化版本，最新版本在最上方。
 
+## v1.11.2
+
+兼容性修复(为合并上游准备)
+
+- **聊天记录"全部模式"加 fallback**:旧版酒馆 `/api/chats/search` 必须传 `avatar_url`,全部模式 400 时自动 fallback 到第一个角色,不再报错。
+- **世界书 read/write 加 fallback**:极老版本没有 `/api/worldinfo/get|edit` 接口时,自动 fallback 到前端 `ctx().loadWorldInfo / saveWorldInfo`。
+- **预设默认展开组改用 apiId 判断**:不再硬编码中文 label,不受界面语言影响。
+- **localStorage key 加命名空间**:`stdm_theme` → `stdm_data_manager_theme`,避免与其他扩展冲突。
+- **图标按钮加文字 fallback 结构**:`<i>` 后带隐藏 `<span>`,FA 不可用时至少有结构可扩展。
+
 ## v1.11.1
 
 修复

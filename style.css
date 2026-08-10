@@ -313,6 +313,9 @@ dialog.popup.stdm-popup,
 .stdm_btn.stdm_icon.stdm_danger { color: var(--stdm-danger); }
 .stdm_btn.stdm_icon.stdm_danger:hover { background: var(--stdm-danger-soft); color: var(--stdm-danger); border-color: transparent; }
 
+/* Font Awesome 图标不可用时显示文字 fallback(用 width 检测,避免 :has 兼容问题) */
+.stdm_icon_fallback { display: none; font-size: 11px; margin-left: 3px; }
+
 #stdm_undo {
     border-color: var(--stdm-accent-soft);
     color: var(--stdm-accent-text);

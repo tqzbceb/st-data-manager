@@ -207,11 +207,11 @@ const adapters = {
         async load() {
             const s = await getSettings(true);
             const items = [];
-            // 默认折叠除"聊天补全预设"外的所有分组
-            const DEFAULT_OPEN = '聊天补全预设 (OpenAI/Claude 等)';
+            // 默认折叠除"聊天补全预设(apiId=openai)"外的所有分组,用 apiId 判断,不受界面语言影响
+            const DEFAULT_OPEN_API_ID = 'openai';
             state.collapsedGroups = new Set();
             for (const kind of PRESET_KINDS) {
-                if (kind.label !== DEFAULT_OPEN) state.collapsedGroups.add(kind.label);
+                if (kind.apiId !== DEFAULT_OPEN_API_ID) state.collapsedGroups.add(kind.label);
                 if (kind.objectsKey) {
                     const arr = Array.isArray(s?.[kind.objectsKey]) ? s[kind.objectsKey] : [];
                     for (const obj of arr) {
@@ -275,8 +275,32 @@ const adapters = {
                 meta: w.name && w.name !== w.file_id ? `内部名: ${w.name}` : '',
             }));
         },
-        async read(item) { return await post('/api/worldinfo/get', { name: item.name }); },
-        async write(item, data) { await post('/api/worldinfo/edit', { name: item.name, data }); },
+        async read(item) {
+            try {
+                return await post('/api/worldinfo/get', { name: item.name });
+            } catch (e) {
+                // 极老版本没有 /api/worldinfo/get,fallback 到 context 的 loadWorldInfo
+                const c = ctx();
+                if (typeof c.loadWorldInfo === 'function') {
+                    console.warn('[数据管家] /api/worldinfo/get 失败,fallback 到 loadWorldInfo', e);
+                    return await c.loadWorldInfo(item.name);
+                }
+                throw e;
+            }
+        },
+        async write(item, data) {
+            try {
+                await post('/api/worldinfo/edit', { name: item.name, data });
+            } catch (e) {
+                const c = ctx();
+                if (typeof c.saveWorldInfo === 'function') {
+                    console.warn('[数据管家] /api/worldinfo/edit 失败,fallback 到 saveWorldInfo', e);
+                    await c.saveWorldInfo(item.name, data, true);
+                    return;
+                }
+                throw e;
+            }
+        },
         async remove(item) { await post('/api/worldinfo/delete', { name: item.name }); },
         async rename(item, newName) {
             const data = await this.read(item);
@@ -406,23 +430,41 @@ const adapters = {
         needsCharacter: false,
         async load(st) {
             // st.avatar 为空字符串 = 全部;否则按角色筛选
-            const filter = st.avatar ? { avatar_url: st.avatar } : {};
-            const list = await post('/api/chats/search', filter);
+            // 兼容:旧版酒馆 /api/chats/search 必须传 avatar_url,否则会 400,这时 fallback 到第一个角色
+            let avatar = st.avatar;
+            if (!avatar && state.characters?.length) {
+                // 尝试"全部"模式;若失败下面 catch 会 fallback
+                avatar = '';
+            }
+            const filter = avatar ? { avatar_url: avatar } : {};
+            let list;
+            try {
+                list = await post('/api/chats/search', filter);
+            } catch (e) {
+                // 旧版酒馆"全部"模式不支持,fallback 到第一个角色
+                if (!avatar && state.characters?.length) {
+                    console.warn('[数据管家] 当前版本不支持列出全部聊天,fallback 到第一个角色', e);
+                    avatar = state.characters[0].avatar;
+                    list = await post('/api/chats/search', { avatar_url: avatar });
+                } else {
+                    throw e;
+                }
+            }
             const arr = Array.isArray(list) ? list : [];
             // 建一个 avatar -> 角色名 的映射,便于显示
             const nameMap = new Map();
             for (const c of state.characters || []) nameMap.set(c.avatar, c.name || c.avatar);
             return arr.map(c => {
                 // TauriTavern 搜索结果会带 character_name / character_id / avatar_url 之一
-                const avatar = c.avatar_url || c.character_id || c.avatar || st.avatar || '';
-                const charName = c.character_name || nameMap.get(avatar) || avatar || '';
+                const itemAvatar = c.avatar_url || c.character_id || c.avatar || avatar || '';
+                const charName = c.character_name || nameMap.get(itemAvatar) || itemAvatar || '';
                 const title = charName ? `${charName} · ${c.file_name}` : c.file_name;
                 return {
-                    id: `${avatar}::${c.file_name}`,
+                    id: `${itemAvatar}::${c.file_name}`,
                     name: title,
                     fileName: c.file_name,
                     group: charName ? `聊天记录 — ${charName}` : '聊天记录',
-                    avatar,
+                    avatar: itemAvatar,
                     meta: `${c.message_count ?? '?'} 条 · ${c.file_size ?? ''}`,
                 };
             });
@@ -570,7 +612,7 @@ const THEMES = [
 
 function loadTheme() {
     try {
-        const t = localStorage.getItem('stdm_theme');
+        const t = localStorage.getItem('stdm_data_manager_theme');
         if (t && THEMES.some(x => x.id === t)) return t;
     } catch { /* 忽略 */ }
     return 'claude';
@@ -604,7 +646,7 @@ function $(sel) { return rootEl ? rootEl.querySelector(sel) : null; }
 
 function applyTheme(name) {
     state.theme = name;
-    try { localStorage.setItem('stdm_theme', name); } catch { /* 忽略 */ }
+    try { localStorage.setItem('stdm_data_manager_theme', name); } catch { /* 忽略 */ }
     if (rootEl) rootEl.dataset.theme = name;
     document.querySelectorAll('.stdm-popup').forEach(el => { el.dataset.theme = name; });
 }
@@ -815,7 +857,8 @@ function renderList() {
             const b = document.createElement('button');
             b.className = `stdm_btn stdm_icon ${cls || ''}`.trim();
             b.title = tip;
-            b.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+            // 图标 + 隐藏文字,Font Awesome 不可用时至少还有文字提示
+            b.innerHTML = `<i class="fa-solid ${icon}"></i><span class="stdm_icon_fallback">${tip}</span>`;
             b.addEventListener('click', fn);
             return b;
         };
