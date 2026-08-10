@@ -397,27 +397,39 @@ const adapters = {
         label: '聊天记录',
         editable: true,
         renamable: true,
-        needsCharacter: true,
+        // needsCharacter 不再是 true:支持"全部聊天"模式
+        needsCharacter: false,
         async load(st) {
-            if (!st.avatar) return [];
-            const list = await post('/api/chats/search', { avatar_url: st.avatar });
+            // st.avatar 为空字符串 = 全部;否则按角色筛选
+            const filter = st.avatar ? { avatar_url: st.avatar } : {};
+            const list = await post('/api/chats/search', filter);
             const arr = Array.isArray(list) ? list : [];
-            return arr.map(c => ({
-                id: `${st.avatar}::${c.file_name}`,
-                name: c.file_name,
-                group: `聊天记录 — ${st.charName}`,
-                avatar: st.avatar,
-                meta: `${c.message_count ?? '?'} 条 · ${c.file_size ?? ''}`,
-            }));
+            // 建一个 avatar -> 角色名 的映射,便于显示
+            const nameMap = new Map();
+            for (const c of state.characters || []) nameMap.set(c.avatar, c.name || c.avatar);
+            return arr.map(c => {
+                // TauriTavern 搜索结果会带 character_name / character_id / avatar_url 之一
+                const avatar = c.avatar_url || c.character_id || c.avatar || st.avatar || '';
+                const charName = c.character_name || nameMap.get(avatar) || avatar || '';
+                const title = charName ? `${charName} · ${c.file_name}` : c.file_name;
+                return {
+                    id: `${avatar}::${c.file_name}`,
+                    name: title,
+                    fileName: c.file_name,
+                    group: charName ? `聊天记录 — ${charName}` : '聊天记录',
+                    avatar,
+                    meta: `${c.message_count ?? '?'} 条 · ${c.file_size ?? ''}`,
+                };
+            });
         },
-        async read(item) { return await post('/api/chats/get', { avatar_url: item.avatar, file_name: item.name }); },
-        async write(item, data) { await post('/api/chats/save', { avatar_url: item.avatar, file_name: item.name, chat: data, force: true }); },
-        async remove(item) { await post('/api/chats/delete', { avatar_url: item.avatar, chatfile: `${item.name}.jsonl` }); },
+        async read(item) { return await post('/api/chats/get', { avatar_url: item.avatar, file_name: item.fileName }); },
+        async write(item, data) { await post('/api/chats/save', { avatar_url: item.avatar, file_name: item.fileName, chat: data, force: true }); },
+        async remove(item) { await post('/api/chats/delete', { avatar_url: item.avatar, chatfile: `${item.fileName}.jsonl` }); },
         async rename(item, newName) {
-            await post('/api/chats/rename', { avatar_url: item.avatar, original_file: `${item.name}.jsonl`, renamed_file: `${newName}.jsonl` });
+            await post('/api/chats/rename', { avatar_url: item.avatar, original_file: `${item.fileName}.jsonl`, renamed_file: `${newName}.jsonl` });
         },
-        async restore(backup) { await post('/api/chats/save', { avatar_url: backup.avatar, file_name: backup.name, chat: backup.data, force: true }); },
-        backupOf(item, data) { return { name: item.name, avatar: item.avatar, data }; },
+        async restore(backup) { await post('/api/chats/save', { avatar_url: backup.avatar, file_name: backup.fileName || backup.name, chat: backup.data, force: true }); },
+        backupOf(item, data) { return { name: item.name, fileName: item.fileName, avatar: item.avatar, data }; },
     },
 
     themes: {
@@ -542,14 +554,13 @@ function watchPersonas() {
  * ------------------------------------------------------------------ */
 
 const THEMES = [
-    { id: 'aurora', name: '星霜 Aurora' },
-    { id: 'rose', name: '暗玫瑰 Rosé' },
-    { id: 'teal', name: '深海 Teal' },
+    { id: 'claude', name: 'Claude(默认)' },
+    { id: 'sage', name: '鼠尾草 Sage' },
+    { id: 'ocean', name: '海蓝 Ocean' },
+    { id: 'lavender', name: '薰衣草 Lavender' },
+    { id: 'rose', name: '蔷薇 Rose' },
     { id: 'amber', name: '琥珀 Amber' },
-    { id: 'midnight', name: '暗夜 Midnight' },
-    { id: 'mint', name: '薄荷 Mint' },
-    { id: 'graphite', name: '石墨 Graphite' },
-    { id: 'sakura', name: '樱粉 Sakura' },
+    { id: 'mono', name: '单色 Mono' },
 ];
 
 function loadTheme() {
@@ -557,7 +568,7 @@ function loadTheme() {
         const t = localStorage.getItem('stdm_theme');
         if (t && THEMES.some(x => x.id === t)) return t;
     } catch { /* 忽略 */ }
-    return 'aurora';
+    return 'claude';
 }
 
 /* ------------------------------------------------------------------ *
@@ -780,15 +791,18 @@ async function populateCharacterPicker() {
     const all = await post('/api/characters/all', { shallow: true });
     state.characters = Array.isArray(all) ? all : [];
     pick.innerHTML = '';
+    // 默认"全部聊天" — 不过滤,列出所有角色的聊天
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = '— 全部聊天 —';
+    pick.appendChild(allOpt);
     for (const c of state.characters) {
         const o = document.createElement('option');
         o.value = c.avatar; o.textContent = c.name || c.avatar;
         pick.appendChild(o);
     }
-    if (!state.avatar && state.characters.length) {
-        state.avatar = state.characters[0].avatar;
-        state.charName = state.characters[0].name || state.avatar;
-    }
+    const valid = ['', ...state.characters.map(c => c.avatar)];
+    if (!valid.includes(state.avatar)) state.avatar = '';
     pick.value = state.avatar;
 }
 
@@ -797,9 +811,11 @@ async function switchTab(key) {
     state.selected.clear();
     if (rootEl) rootEl.querySelectorAll('.stdm_tab').forEach(t => t.classList.toggle('stdm_active', t.dataset.tab === key));
     const pick = $('#stdm_charpick');
-    const needsChar = !!adapters[key].needsCharacter;
-    if (pick) pick.style.display = needsChar ? '' : 'none';
-    if (needsChar) { setStatus('正在读取角色列表…'); await populateCharacterPicker(); }
+    const ad = adapters[key];
+    // 聊天记录:即使 needsCharacter=false 也显示选择器(提供"全部"选项,默认全部)
+    const showPick = !!ad.needsCharacter || key === 'chats';
+    if (pick) pick.style.display = showPick ? '' : 'none';
+    if (showPick) { setStatus('正在读取角色列表...'); await populateCharacterPicker(); }
     await reload();
 }
 

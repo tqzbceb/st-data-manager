@@ -1,166 +1,60 @@
 /* ============================================================
    数据管家 · Data Manager
-   现代扁平风(Linear / Vercel 风格)
-   面板由 SillyTavern 内置 Popup 承载,配色不跟随酒馆主题,
-   由 data-theme 属性切换。
+   Claude 暗色风 — 温暖深棕 + 陶土橙 accent
+   面板由 SillyTavern 内置 Popup 承载,配色不跟随酒馆主题。
    ============================================================ */
 
-/* ---------- 主题变量 ---------- */
+/* ---------- Claude 基础变量 ---------- */
 .stdm-root,
 .stdm-popup {
-    --stdm-bg: #0f1014;
-    --stdm-bg-elev: #16171d;
-    --stdm-bg-hover: #1c1e26;
-    --stdm-bg-active: #20232e;
-    --stdm-border: #23252e;
-    --stdm-border-strong: #2c2f3a;
-    --stdm-text: #e6e8ee;
-    --stdm-text-2: #9aa0ae;
-    --stdm-text-3: #6b7280;
-    --stdm-accent: #5e6ad2;
-    --stdm-accent-hover: #6b77e0;
-    --stdm-accent-soft: rgba(94, 106, 210, 0.14);
-    --stdm-accent-text: #a8b0e8;
+    --stdm-bg: #1c1917;
+    --stdm-bg-elev: #292524;
+    --stdm-bg-hover: #322d2b;
+    --stdm-bg-active: #3b3533;
+    --stdm-border: #3a3533;
+    --stdm-border-strong: #4a4441;
+    --stdm-text: #ece7e2;
+    --stdm-text-2: #b8b0a8;
+    --stdm-text-3: #8a8178;
+    --stdm-accent: #d97757;
+    --stdm-accent-hover: #e8896b;
+    --stdm-accent-soft: rgba(217, 119, 87, 0.16);
+    --stdm-accent-text: #e8a389;
     --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+    --stdm-danger-soft: rgba(239, 68, 68, 0.14);
     --stdm-radius: 8px;
     --stdm-radius-sm: 6px;
     --stdm-radius-lg: 12px;
-    --stdm-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
-    --stdm-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.32);
 }
 
-.stdm-root[data-theme="rose"],
-.stdm-popup[data-theme="rose"] {
-    --stdm-bg: #181114;
-    --stdm-bg-elev: #201418;
-    --stdm-bg-hover: #281820;
-    --stdm-bg-active: #2e1c26;
-    --stdm-border: #332028;
-    --stdm-border-strong: #3d2830;
-    --stdm-text: #f0e2e8;
-    --stdm-text-2: #b39aa6;
-    --stdm-text-3: #8a7078;
-    --stdm-accent: #d6366c;
-    --stdm-accent-hover: #e24b80;
-    --stdm-accent-soft: rgba(214, 54, 108, 0.14);
-    --stdm-accent-text: #f0a8c0;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+/* 其他主题:在 Claude 棕底基调上调 accent,不再换整底 */
+.stdm-root[data-theme="claude"], .stdm-popup[data-theme="claude"] {
+    --stdm-accent: #d97757; --stdm-accent-hover: #e8896b; --stdm-accent-text: #e8a389;
+    --stdm-accent-soft: rgba(217, 119, 87, 0.16);
 }
-
-.stdm-root[data-theme="teal"],
-.stdm-popup[data-theme="teal"] {
-    --stdm-bg: #0c1318;
-    --stdm-bg-elev: #121a21;
-    --stdm-bg-hover: #182229;
-    --stdm-bg-active: #1c2931;
-    --stdm-border: #1e2a33;
-    --stdm-border-strong: #273641;
-    --stdm-text: #dde8ea;
-    --stdm-text-2: #95a8ad;
-    --stdm-text-3: #6b7d83;
-    --stdm-accent: #0ea5a0;
-    --stdm-accent-hover: #14bdb7;
-    --stdm-accent-soft: rgba(14, 165, 160, 0.15);
-    --stdm-accent-text: #7ad4d0;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="sage"], .stdm-popup[data-theme="sage"] {
+    --stdm-accent: #8fbf6f; --stdm-accent-hover: #a3d385; --stdm-accent-text: #b9dca4;
+    --stdm-accent-soft: rgba(143, 191, 111, 0.16);
 }
-
-.stdm-root[data-theme="amber"],
-.stdm-popup[data-theme="amber"] {
-    --stdm-bg: #16110a;
-    --stdm-bg-elev: #1d1810;
-    --stdm-bg-hover: #251e14;
-    --stdm-bg-active: #2b2317;
-    --stdm-border: #2c2417;
-    --stdm-border-strong: #372d1d;
-    --stdm-text: #ece4d2;
-    --stdm-text-2: #b0a48a;
-    --stdm-text-3: #837a63;
-    --stdm-accent: #d97706;
-    --stdm-accent-hover: #f59e0b;
-    --stdm-accent-soft: rgba(217, 119, 6, 0.15);
-    --stdm-accent-text: #f2b45c;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="ocean"], .stdm-popup[data-theme="ocean"] {
+    --stdm-accent: #6ba8d9; --stdm-accent-hover: #83bce8; --stdm-accent-text: #a3c8e8;
+    --stdm-accent-soft: rgba(107, 168, 217, 0.16);
 }
-
-.stdm-root[data-theme="midnight"],
-.stdm-popup[data-theme="midnight"] {
-    --stdm-bg: #0a0c14;
-    --stdm-bg-elev: #10121c;
-    --stdm-bg-hover: #161928;
-    --stdm-bg-active: #1a1e30;
-    --stdm-border: #1d2030;
-    --stdm-border-strong: #282c42;
-    --stdm-text: #dde1f2;
-    --stdm-text-2: #9ba1bd;
-    --stdm-text-3: #6d738c;
-    --stdm-accent: #6366f1;
-    --stdm-accent-hover: #818cf8;
-    --stdm-accent-soft: rgba(99, 102, 241, 0.15);
-    --stdm-accent-text: #a5b0fc;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="lavender"], .stdm-popup[data-theme="lavender"] {
+    --stdm-accent: #b48fd9; --stdm-accent-hover: #c6a4e8; --stdm-accent-text: #d4b8e8;
+    --stdm-accent-soft: rgba(180, 143, 217, 0.16);
 }
-
-.stdm-root[data-theme="mint"],
-.stdm-popup[data-theme="mint"] {
-    --stdm-bg: #0b1310;
-    --stdm-bg-elev: #111a15;
-    --stdm-bg-hover: #172219;
-    --stdm-bg-active: #1b281d;
-    --stdm-border: #1e2b22;
-    --stdm-border-strong: #283829;
-    --stdm-text: #d9ebe0;
-    --stdm-text-2: #93b3a0;
-    --stdm-text-3: #677f6f;
-    --stdm-accent: #10b981;
-    --stdm-accent-hover: #34d399;
-    --stdm-accent-soft: rgba(16, 185, 129, 0.14);
-    --stdm-accent-text: #6ee7b7;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="rose"], .stdm-popup[data-theme="rose"] {
+    --stdm-accent: #d97f9b; --stdm-accent-hover: #e894af; --stdm-accent-text: #eeb2c2;
+    --stdm-accent-soft: rgba(217, 127, 155, 0.16);
 }
-
-.stdm-root[data-theme="graphite"],
-.stdm-popup[data-theme="graphite"] {
-    --stdm-bg: #161618;
-    --stdm-bg-elev: #1c1c1f;
-    --stdm-bg-hover: #232327;
-    --stdm-bg-active: #28282c;
-    --stdm-border: #2a2a2f;
-    --stdm-border-strong: #35353b;
-    --stdm-text: #e2e2e6;
-    --stdm-text-2: #a0a0a8;
-    --stdm-text-3: #71717a;
-    --stdm-accent: #71717a;
-    --stdm-accent-hover: #a1a1aa;
-    --stdm-accent-soft: rgba(113, 113, 122, 0.18);
-    --stdm-accent-text: #c6c6cc;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="amber"], .stdm-popup[data-theme="amber"] {
+    --stdm-accent: #e0a54a; --stdm-accent-hover: #efb860; --stdm-accent-text: #f2c97e;
+    --stdm-accent-soft: rgba(224, 165, 74, 0.16);
 }
-
-.stdm-root[data-theme="sakura"],
-.stdm-popup[data-theme="sakura"] {
-    --stdm-bg: #181013;
-    --stdm-bg-elev: #201418;
-    --stdm-bg-hover: #271920;
-    --stdm-bg-active: #2c1e26;
-    --stdm-border: #30202a;
-    --stdm-border-strong: #3c2836;
-    --stdm-text: #f2e0e6;
-    --stdm-text-2: #b698a2;
-    --stdm-text-3: #8a6f78;
-    --stdm-accent: #ec4899;
-    --stdm-accent-hover: #f472b6;
-    --stdm-accent-soft: rgba(236, 72, 153, 0.15);
-    --stdm-accent-text: #f9a8d4;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.12);
+.stdm-root[data-theme="mono"], .stdm-popup[data-theme="mono"] {
+    --stdm-accent: #a3a3a3; --stdm-accent-hover: #c2c2c2; --stdm-accent-text: #d6d6d6;
+    --stdm-accent-soft: rgba(163, 163, 163, 0.16);
 }
 
 /* ---------- 弹窗承载 ---------- */
@@ -172,14 +66,14 @@ dialog.popup.stdm-popup,
     border-radius: var(--stdm-radius-lg);
     padding: 0 !important;
     max-width: none !important;
-    width: 99vw !important;
-    height: 98vh !important;
-    max-height: 98vh !important;
+    width: 96vw !important;
+    height: 92vh !important;
+    max-height: 92vh !important;
     resize: both;
     overflow: hidden;
-    min-width: 320px;
-    min-height: 240px;
-    box-shadow: var(--stdm-shadow-2);
+    min-width: 360px;
+    min-height: 280px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .stdm-popup .popup-content {
@@ -189,23 +83,33 @@ dialog.popup.stdm-popup,
     max-height: 100% !important;
     display: flex !important;
     overflow: hidden !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
 }
 
-.stdm-popup .popup-content > .stdm-root { flex: 1 1 auto; min-height: 0; }
+.stdm-popup .popup-content > .stdm-root { flex: 1 1 auto; min-height: 0; min-width: 0; }
+
 .stdm-popup .popup-controls {
-    padding: 4px 8px;
+    padding: 6px 12px;
     border-top: 1px solid var(--stdm-border);
     background: var(--stdm-bg-elev);
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
 }
 .stdm-popup .popup-controls .menu_button {
     background: var(--stdm-bg-hover);
     border: 1px solid var(--stdm-border);
     color: var(--stdm-text);
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: var(--stdm-radius-sm);
     font-size: 13px;
+    cursor: pointer;
 }
-.stdm-popup .popup-controls .menu_button:hover { background: var(--stdm-bg-active); border-color: var(--stdm-border-strong); }
+.stdm-popup .popup-controls .menu_button:hover {
+    background: var(--stdm-bg-active);
+    border-color: var(--stdm-border-strong);
+}
 
 /* ---------- 根容器 ---------- */
 .stdm-root {
@@ -214,11 +118,12 @@ dialog.popup.stdm-popup,
     width: 100%;
     height: 100%;
     min-height: 0;
+    min-width: 0;
     box-sizing: border-box;
     color: var(--stdm-text);
     background: var(--stdm-bg);
     text-align: left;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     font-size: 13px;
     line-height: 1.5;
@@ -232,11 +137,12 @@ dialog.popup.stdm-popup,
 #stdm_header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 10px 14px;
     flex: 0 0 auto;
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
+    flex-wrap: wrap;
 }
 
 #stdm_header .stdm_title {
@@ -256,11 +162,12 @@ dialog.popup.stdm-popup,
     cursor: pointer;
     user-select: none;
     margin: 0;
+    white-space: nowrap;
 }
 
 .stdm_theme_sel {
     color: var(--stdm-text);
-    background: var(--stdm-bg-hover);
+    background: var(--stdm-bg);
     border: 1px solid var(--stdm-border);
     border-radius: var(--stdm-radius-sm);
     padding: 5px 10px;
@@ -269,7 +176,7 @@ dialog.popup.stdm-popup,
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
 }
-.stdm_theme_sel:hover { background: var(--stdm-bg-active); border-color: var(--stdm-border-strong); }
+.stdm_theme_sel:hover { background: var(--stdm-bg-hover); }
 .stdm_theme_sel:focus { border-color: var(--stdm-accent); }
 
 /* ---------- 标签页 ---------- */
@@ -302,14 +209,12 @@ dialog.popup.stdm-popup,
 }
 
 .stdm_tab:hover { color: var(--stdm-text); }
-
 .stdm_tab.stdm_active { color: var(--stdm-accent-text); font-weight: 600; }
-
 .stdm_tab.stdm_active::after {
     content: '';
     position: absolute;
-    left: 8px;
-    right: 8px;
+    left: 10px;
+    right: 10px;
     bottom: -1px;
     height: 2px;
     background: var(--stdm-accent);
@@ -319,13 +224,13 @@ dialog.popup.stdm-popup,
 /* ---------- 工具栏 ---------- */
 #stdm_toolbar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
     flex: 0 0 auto;
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
+    flex-wrap: wrap;
 }
 
 #stdm_toolbar input[type="text"],
@@ -337,16 +242,12 @@ dialog.popup.stdm-popup,
     padding: 6px 10px;
     font-size: 13px;
     outline: none;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s;
 }
 
 #stdm_toolbar input[type="text"]::placeholder { color: var(--stdm-text-3); }
-
 #stdm_toolbar input[type="text"]:focus,
-#stdm_toolbar select:focus {
-    border-color: var(--stdm-accent);
-    background: var(--stdm-bg-hover);
-}
+#stdm_toolbar select:focus { border-color: var(--stdm-accent); background: var(--stdm-bg-hover); }
 
 #stdm_search { flex: 1 1 200px; min-width: 140px; }
 
@@ -361,14 +262,17 @@ dialog.popup.stdm-popup,
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: background 0.15s, border-color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
 }
 
 .stdm_btn:hover { background: var(--stdm-bg-active); border-color: var(--stdm-border-strong); }
 .stdm_btn:active { transform: translateY(0.5px); }
 .stdm_btn[disabled] { opacity: 0.4; cursor: not-allowed; }
 
-/* 危险主按钮(顶部"删除选中") */
 #stdm_delete {
     background: var(--stdm-danger);
     border-color: var(--stdm-danger);
@@ -378,7 +282,7 @@ dialog.popup.stdm-popup,
 #stdm_delete:hover:not([disabled]) { background: #dc2626; border-color: #dc2626; }
 #stdm_delete[disabled] { background: var(--stdm-bg-hover); border-color: var(--stdm-border); color: var(--stdm-text-3); }
 
-/* 行内小图标按钮 */
+/* 行内图标按钮 */
 .stdm_btn.stdm_icon {
     padding: 4px 7px;
     font-size: 12px;
@@ -393,26 +297,15 @@ dialog.popup.stdm-popup,
     color: var(--stdm-text);
     border-color: var(--stdm-border);
 }
+.stdm_btn.stdm_icon.stdm_danger { color: var(--stdm-danger); }
+.stdm_btn.stdm_icon.stdm_danger:hover { background: var(--stdm-danger-soft); color: var(--stdm-danger); border-color: transparent; }
 
-.stdm_btn.stdm_icon.stdm_danger {
-    color: var(--stdm-danger);
-}
-.stdm_btn.stdm_icon.stdm_danger:hover {
-    background: var(--stdm-danger-soft);
-    color: var(--stdm-danger);
-    border-color: transparent;
-}
-
-/* 撤销按钮 — 次级强调 */
 #stdm_undo {
     border-color: var(--stdm-accent-soft);
     color: var(--stdm-accent-text);
     background: var(--stdm-accent-soft);
 }
-#stdm_undo:hover:not([disabled]) { background: rgba(94, 106, 210, 0.22); border-color: var(--stdm-accent); }
-
-/* 历史按钮 — 普通 */
-#stdm_history { background: var(--stdm-bg-hover); }
+#stdm_undo:hover:not([disabled]) { background: var(--stdm-accent-soft); border-color: var(--stdm-accent); }
 
 /* ---------- 复选框 ---------- */
 .stdm-root input[type="checkbox"] {
@@ -431,12 +324,7 @@ dialog.popup.stdm-popup,
 }
 
 .stdm-root input[type="checkbox"]:hover { border-color: var(--stdm-accent); }
-
-.stdm-root input[type="checkbox"]:checked {
-    background: var(--stdm-accent);
-    border-color: var(--stdm-accent);
-}
-
+.stdm-root input[type="checkbox"]:checked { background: var(--stdm-accent); border-color: var(--stdm-accent); }
 .stdm-root input[type="checkbox"]:checked::after {
     content: '';
     position: absolute;
@@ -453,22 +341,20 @@ dialog.popup.stdm-popup,
 #stdm_list {
     flex: 1 1 auto;
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     padding: 0;
     min-height: 0;
+    min-width: 0;
     scrollbar-width: thin;
     scrollbar-color: var(--stdm-border-strong) transparent;
 }
 
 #stdm_list::-webkit-scrollbar { width: 8px; }
 #stdm_list::-webkit-scrollbar-track { background: transparent; }
-#stdm_list::-webkit-scrollbar-thumb {
-    background: var(--stdm-border-strong);
-    border-radius: 4px;
-}
+#stdm_list::-webkit-scrollbar-thumb { background: var(--stdm-border-strong); border-radius: 4px; }
 #stdm_list::-webkit-scrollbar-thumb:hover { background: var(--stdm-text-3); }
 
-/* 分组标题 */
 .stdm_group {
     padding: 14px 14px 6px;
     font-weight: 600;
@@ -483,7 +369,7 @@ dialog.popup.stdm-popup,
     border-bottom: 1px solid var(--stdm-border);
 }
 
-/* 行容器 */
+/* 行 */
 .stdm_row {
     display: flex;
     flex-direction: column;
@@ -492,11 +378,11 @@ dialog.popup.stdm-popup,
     border-bottom: 1px solid var(--stdm-border);
     transition: background 0.12s;
     position: relative;
+    min-width: 0;
 }
 
 .stdm_row:hover { background: var(--stdm-bg-hover); }
 
-/* 选中行高亮 — 左侧 accent 竖线 */
 .stdm_row.stdm_selected { background: var(--stdm-accent-soft); }
 .stdm_row.stdm_selected::before {
     content: '';
@@ -525,12 +411,14 @@ dialog.popup.stdm-popup,
     border: 1px solid var(--stdm-border);
 }
 
+/* 关键:名字用 white-space:nowrap + flex:1 + min-width:0 + overflow hidden 保证中文一行显示且超出省略 */
 .stdm_name {
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    word-break: keep-all;
     font-size: 13px;
     font-weight: 500;
     color: var(--stdm-text);
@@ -550,17 +438,17 @@ dialog.popup.stdm-popup,
 
 /* 第二行:操作按钮,右对齐 */
 .stdm_rowactions {
-    flex: 1 1 auto;
     display: flex;
     gap: 2px;
     justify-content: flex-end;
-    padding-left: 23px; /* 与 checkbox 对齐 */
+    padding-left: 23px;
     opacity: 0;
     transition: opacity 0.12s;
 }
 
 .stdm_row:hover .stdm_rowactions,
-.stdm_row:focus-within .stdm_rowactions { opacity: 1; }
+.stdm_row:focus-within .stdm_rowactions,
+.stdm_row.stdm_selected .stdm_rowactions { opacity: 1; }
 
 @media (pointer: coarse), (max-width: 720px) {
     .stdm_rowactions { opacity: 1 !important; }
@@ -583,8 +471,8 @@ dialog.popup.stdm-popup,
     flex-direction: column;
     gap: 8px;
     width: 100%;
-    height: 80vh;
-    max-height: 86vh;
+    height: 78vh;
+    max-height: 84vh;
     text-align: left;
     padding: 4px;
 }
@@ -607,7 +495,6 @@ dialog.popup.stdm-popup,
 }
 
 .stdm_editor_text:focus { border-color: var(--stdm-accent); }
-
 .stdm_editor_hint { font-size: 11px; color: var(--stdm-text-3); }
 
 /* ---------- 极旧版本回退浮层 ---------- */
@@ -625,8 +512,8 @@ dialog.popup.stdm-popup,
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 80vh;
-    max-height: 86vh;
+    height: 78vh;
+    max-height: 84vh;
     min-height: 0;
     text-align: left;
 }
@@ -694,9 +581,9 @@ dialog.popup.stdm-popup,
 }
 
 .stdm-badge-auto {
-    color: #6ee7b7;
-    background: rgba(16, 185, 129, 0.15);
-    border-color: rgba(16, 185, 129, 0.25);
+    color: #8fbf6f;
+    background: rgba(143, 191, 111, 0.16);
+    border-color: rgba(143, 191, 111, 0.25);
 }
 
 .stdm-hist-count { font-size: 13px; font-weight: 500; color: var(--stdm-text); }
@@ -733,7 +620,7 @@ dialog.popup.stdm-popup,
     #stdm_toolbar .stdm_btn { padding: 9px 12px; }
     #stdm_search { flex: 1 1 100%; font-size: 16px; padding: 11px 12px; }
     #stdm_charpick { flex: 1 1 100%; font-size: 16px; }
-    #stdm_delete { flex: 1 1 100% !important; padding: 13px; font-size: 14px; }
+    #stdm_delete { flex: 1 1 100% !important; padding: 13px; font-size: 14px; justify-content: center; }
     .stdm_tab { padding: 12px 14px; font-size: 14px; }
     .stdm_theme_sel { flex: 1 1 auto; padding: 9px; font-size: 13px; }
 }
