@@ -713,6 +713,10 @@ function renderList() {
         const row = document.createElement('div');
         row.className = 'stdm_row';
 
+        // 第一行:checkbox + avatar + name + meta
+        const main = document.createElement('div');
+        main.className = 'stdm_row-main';
+
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = state.selected.has(item.id);
@@ -720,7 +724,7 @@ function renderList() {
             if (cb.checked) state.selected.add(item.id); else state.selected.delete(item.id);
             updateDeleteButton();
         });
-        row.appendChild(cb);
+        main.appendChild(cb);
 
         if (item.thumb) {
             const img = document.createElement('img');
@@ -728,22 +732,24 @@ function renderList() {
             img.src = item.thumb;
             img.loading = 'lazy';
             img.onerror = () => img.remove();
-            row.appendChild(img);
+            main.appendChild(img);
         }
 
         const name = document.createElement('div');
         name.className = 'stdm_name';
         name.textContent = item.name;
         name.title = item.name;
-        row.appendChild(name);
+        main.appendChild(name);
 
         if (item.meta) {
             const meta = document.createElement('div');
             meta.className = 'stdm_meta';
             meta.textContent = item.meta;
-            row.appendChild(meta);
+            main.appendChild(meta);
         }
+        row.appendChild(main);
 
+        // 第二行:操作按钮,右对齐
         const actions = document.createElement('div');
         actions.className = 'stdm_rowactions';
         if (ad.renamable) {

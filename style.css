@@ -156,12 +156,13 @@ dialog.popup.stdm-popup,
     background: var(--stdm-panel) !important;
     color: var(--stdm-text);
     border: 1px solid rgba(var(--stdm-panel-rgb), 0.9) !important;
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 0 !important;
-    max-width: none;
-    width: 98vw;
-    max-height: 94vh;
-    /* 允许用户从右下角拖动调整整个面板大小,显示更多条目 */
+    max-width: none !important;
+    /* 默认基本拉满,留 1vh/1vw 边距;用户可自由拖右下角缩放 */
+    width: 99vw !important;
+    height: 98vh !important;
+    max-height: 98vh !important;
     resize: both;
     overflow: hidden;
     min-width: 320px;
@@ -171,10 +172,10 @@ dialog.popup.stdm-popup,
 .stdm-popup .popup-content {
     padding: 0 !important;
     margin: 0 !important;
-    height: calc(100% - 28px);
-    max-height: none;
-    display: flex;
-    overflow: hidden;
+    height: 100% !important;
+    max-height: 100% !important;
+    display: flex !important;
+    overflow: hidden !important;
 }
 
 .stdm-popup .popup-content > .stdm-root { flex: 1 1 auto; min-height: 0; }
@@ -205,8 +206,8 @@ dialog.popup.stdm-popup,
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 7px;
-    padding: 8px 12px;
+    gap: 6px;
+    padding: 6px 10px;
     flex: 0 0 auto;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
     border-bottom: 1px solid var(--stdm-line-soft);
@@ -295,8 +296,8 @@ dialog.popup.stdm-popup,
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 5px;
+    padding: 5px 10px;
     flex: 0 0 auto;
     border-top: 1px solid var(--stdm-line-soft);
     border-bottom: 1px solid var(--stdm-line-soft);
@@ -400,7 +401,7 @@ dialog.popup.stdm-popup,
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 4px 8px 8px;
+    padding: 2px 6px 4px;
     min-height: 0;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
@@ -433,23 +434,30 @@ dialog.popup.stdm-popup,
     background: linear-gradient(90deg, var(--stdm-line), transparent);
 }
 
-/* 行 — 压缩占位 */
+/* 行 — 两行式布局:第一行名称,第二行按钮右对齐,名字不会被挤掉 */
 .stdm_row {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 7px;
-    padding: 6px 8px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 8px;
     border-bottom: 1px solid var(--stdm-line-soft);
     transition: background 0.16s ease;
 }
 
 .stdm_row:hover { background: var(--stdm-glass-hi); }
 
+/* 第一行:checkbox + avatar + name + meta */
+.stdm_row-main {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
 .stdm_avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
     object-fit: cover;
     flex: 0 0 auto;
     border: 1px solid var(--stdm-line);
@@ -462,7 +470,7 @@ dialog.popup.stdm-popup,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.92em;
+    font-size: 0.9em;
     font-weight: 450;
 }
 
@@ -477,24 +485,24 @@ dialog.popup.stdm-popup,
     white-space: nowrap;
 }
 
+/* 第二行:按钮,整行右对齐 */
 .stdm_rowactions {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     display: flex;
     gap: 4px;
-    opacity: 0.35;
-    transition: opacity 0.18s ease;
+    justify-content: flex-end;
+    padding-right: 2px;
 }
 
-.stdm_rowactions .stdm_btn { padding: 4px 9px; font-size: 0.76em; border-radius: 6px; }
+.stdm_rowactions .stdm_btn { padding: 3px 9px; font-size: 0.74em; border-radius: 6px; }
 
 @media (hover: hover) and (pointer: fine) {
+    .stdm_rowactions { opacity: 0.45; transition: opacity 0.18s ease; }
     .stdm_row:hover .stdm_rowactions { opacity: 1; }
 }
 
 @media (pointer: coarse), (max-width: 720px) {
-    .stdm_rowactions {
-        opacity: 1 !important;
-    }
+    .stdm_rowactions { opacity: 1 !important; }
     #stdm_toolbar .stdm_btn { padding: 9px 10px; text-align: center; }
     #stdm_search { flex: 1 1 100%; font-size: 16px; padding: 11px 12px; }
     #stdm_charpick { flex: 1 1 100%; font-size: 16px; }
