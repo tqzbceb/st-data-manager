@@ -682,25 +682,44 @@ function buildContent() {
     });
 
     // 上下滑收起/展开 header+tabs+toolbar:向上滑收,向下滑展
+    // 同时监听 scroll 和 touch 事件,兼容手机端
     const listEl = root.querySelector('#stdm_list');
     let lastScrollTop = 0;
-    const HIDE_DELTA = 5; // 每帧滚动 5px 就切换,响应更快
+    let lastTouchY = null;
+
+    const setCollapsed = (collapsed) => {
+        const has = root.classList.contains('stdm_collapsed_top');
+        if (collapsed && !has) {
+            root.classList.add('stdm_collapsed_top');
+            console.debug('[数据管家] 收起顶部');
+        } else if (!collapsed && has) {
+            root.classList.remove('stdm_collapsed_top');
+            console.debug('[数据管家] 展开顶部');
+        }
+    };
+
+    // 桌面/手机通用:scroll 事件
     listEl.addEventListener('scroll', () => {
         const cur = listEl.scrollTop;
         const delta = cur - lastScrollTop;
-        if (delta > HIDE_DELTA && cur > 80) {
-            if (!root.classList.contains('stdm_collapsed_top')) {
-                root.classList.add('stdm_collapsed_top');
-                console.debug('[数据管家] 收起顶部, scrollTop =', cur);
-            }
-        } else if (delta < -HIDE_DELTA || cur <= 10) {
-            if (root.classList.contains('stdm_collapsed_top')) {
-                root.classList.remove('stdm_collapsed_top');
-                console.debug('[数据管家] 展开顶部, scrollTop =', cur);
-            }
-        }
+        if (delta > 3 && cur > 50) setCollapsed(true);
+        else if (delta < -3 || cur <= 10) setCollapsed(false);
         lastScrollTop = cur;
     }, { passive: true });
+
+    // 手机触屏:touchmove 判断手指滑动方向(手指上滑=内容向上滚=收起)
+    listEl.addEventListener('touchstart', (e) => {
+        lastTouchY = e.touches[0].clientY;
+    }, { passive: true });
+    listEl.addEventListener('touchmove', (e) => {
+        if (lastTouchY == null) return;
+        const cur = e.touches[0].clientY;
+        const dy = lastTouchY - cur; // 手指向上滑 dy>0,向下滑 dy<0
+        if (dy > 5 && listEl.scrollTop > 30) setCollapsed(true);
+        else if (dy < -5 || listEl.scrollTop <= 5) setCollapsed(false);
+        lastTouchY = cur;
+    }, { passive: true });
+    listEl.addEventListener('touchend', () => { lastTouchY = null; }, { passive: true });
 
     const themeSel = root.querySelector('#stdm_theme');
     for (const t of THEMES) {
