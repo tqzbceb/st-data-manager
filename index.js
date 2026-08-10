@@ -683,23 +683,35 @@ function buildContent() {
         reload();
     });
 
-    // 只有拉到列表最顶部时才展开顶部(延迟 250ms);一旦向下滚立即收起
+    // 二次拖动展开:向下滚动时收起顶部;滚到顶后顶部不自动出现,
+    // 需要在顶部再往下拉一次(下拉手势)才展开。
     const listEl = root.querySelector('#stdm_list');
-    let expandTimer = null;
     const setCollapsed = (collapsed) => {
         root.classList.toggle('stdm_collapsed_top', collapsed);
     };
+    // 向下滚立即收起
     listEl.addEventListener('scroll', () => {
-        if (listEl.scrollTop > 20) {
-            if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
-            setCollapsed(true);
-        } else if (listEl.scrollTop <= 10) {
-            if (expandTimer) clearTimeout(expandTimer);
-            expandTimer = setTimeout(() => {
-                expandTimer = null;
-                if (listEl.scrollTop <= 10) setCollapsed(false);
-            }, 250);
+        if (listEl.scrollTop > 20) setCollapsed(true);
+    }, { passive: true });
+
+    // 在顶部下拉(二次拖动)才展开 — touch 端
+    let pullStartY = null;
+    listEl.addEventListener('touchstart', (e) => {
+        pullStartY = (listEl.scrollTop <= 5) ? e.touches[0].clientY : null;
+    }, { passive: true });
+    listEl.addEventListener('touchmove', (e) => {
+        if (pullStartY == null) return;
+        const dy = e.touches[0].clientY - pullStartY; // 下拉 dy>0
+        if (dy > 40 && listEl.scrollTop <= 5) {
+            setCollapsed(false);
+            pullStartY = null;
         }
+    }, { passive: true });
+    listEl.addEventListener('touchend', () => { pullStartY = null; }, { passive: true });
+
+    // 桌面端:到顶后再滚轮向上(继续下拉手势)则展开
+    listEl.addEventListener('wheel', (e) => {
+        if (e.deltaY < 0 && listEl.scrollTop <= 5) setCollapsed(false);
     }, { passive: true });
 
     const themeSel = root.querySelector('#stdm_theme');
