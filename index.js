@@ -684,13 +684,20 @@ function buildContent() {
     // 上下滑收起/展开 header+tabs+toolbar:向上滑收,向下滑展
     const listEl = root.querySelector('#stdm_list');
     let lastScrollTop = 0;
-    let hideThreshold = 30; // 滑动超过这个距离才切换,防抖动
+    const HIDE_DELTA = 5; // 每帧滚动 5px 就切换,响应更快
     listEl.addEventListener('scroll', () => {
         const cur = listEl.scrollTop;
-        if (cur > lastScrollTop + hideThreshold && cur > 60) {
-            root.classList.add('stdm_collapsed_top');
-        } else if (cur < lastScrollTop - hideThreshold || cur <= 10) {
-            root.classList.remove('stdm_collapsed_top');
+        const delta = cur - lastScrollTop;
+        if (delta > HIDE_DELTA && cur > 80) {
+            if (!root.classList.contains('stdm_collapsed_top')) {
+                root.classList.add('stdm_collapsed_top');
+                console.debug('[数据管家] 收起顶部, scrollTop =', cur);
+            }
+        } else if (delta < -HIDE_DELTA || cur <= 10) {
+            if (root.classList.contains('stdm_collapsed_top')) {
+                root.classList.remove('stdm_collapsed_top');
+                console.debug('[数据管家] 展开顶部, scrollTop =', cur);
+            }
         }
         lastScrollTop = cur;
     }, { passive: true });
