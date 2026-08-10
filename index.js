@@ -99,6 +99,9 @@ function fmtTime(v) {
 const DB_NAME = 'stdm_data_manager';
 const DB_STORE = 'history';
 const HISTORY_MAX = 60;
+// 回收站过期天数,默认 7 天
+const RECYCLE_EXPIRE_DAYS = 7;
+const RECYCLE_EXPIRE_MS = RECYCLE_EXPIRE_DAYS * 24 * 60 * 60 * 1000;
 
 function openDB() {
     return new Promise((resolve, reject) => {
@@ -157,9 +160,25 @@ function genId() { return Date.now() * 1000 + ((__idCounter++) % 1000); }
 
 async function trimHistory() {
     const all = await dbGetAll();
-    if (all.length > HISTORY_MAX) {
-        all.sort((a, b) => a.id - b.id);
-        for (const r of all.slice(0, all.length - HISTORY_MAX)) await dbDelete(r.id);
+    const now = Date.now();
+    // 先清掉过期的回收站条目(非 auto 的才算回收站,auto 的是自动备份不过期)
+    for (const r of all) {
+        if (!r.auto && r.time) {
+            const t = new Date(r.time).getTime();
+            if (!isNaN(t) && now - t > RECYCLE_EXPIRE_MS) {
+                await dbDelete(r.id);
+                try { await ttStoreDelete(r.id); } catch { /* 忽略 */ }
+            }
+        }
+    }
+    // 再按数量上限清理
+    const remain = await dbGetAll();
+    if (remain.length > HISTORY_MAX) {
+        remain.sort((a, b) => a.id - b.id);
+        for (const r of remain.slice(0, remain.length - HISTORY_MAX)) {
+            await dbDelete(r.id);
+            try { await ttStoreDelete(r.id); } catch { /* 忽略 */ }
+        }
     }
 }
 
@@ -174,6 +193,8 @@ async function saveHistory(tab, entries, opts = {}) {
         auto: !!opts.auto,
         entries,
     };
+    // 双写:TauriTavern extension.store(优先,跨设备)+ IndexedDB(fallback)
+    try { await ttStoreSet(rec.id, rec); } catch { /* 忽略 */ }
     try { await dbPut(rec); await trimHistory(); }
     catch (e) { console.warn('[数据管家] 写入历史失败', e); }
 }
@@ -637,6 +658,8 @@ const state = {
     collapsedGroups: new Set(),
     // 是否需要按分组折叠(仅预设 tab 用)
     collapseEnabled: false,
+    // 全局搜索模式:false=仅名称,true=名称+内容
+    searchContent: false,
 };
 
 let currentPopup = null;
@@ -675,16 +698,18 @@ function buildContent() {
                 <label class="stdm_flexrow">
                     <input type="checkbox" id="stdm_autodl" checked> 删除时下载备份
                 </label>
-                <button class="stdm_btn" id="stdm_history" title="删除历史"><i class="fa-solid fa-clock-rotate-left"></i> 历史</button>
+                <button class="stdm_btn" id="stdm_history" title="回收站"><i class="fa-solid fa-trash-can"></i> 回收站</button>
                 <button class="stdm_btn" id="stdm_undo" disabled title="撤销上次删除"><i class="fa-solid fa-rotate-left"></i> 撤销</button>
             </div>
             <div id="stdm_tabs"></div>
             <div id="stdm_toolbar">
                 <select id="stdm_charpick" style="display:none;"></select>
                 <input type="text" id="stdm_search" placeholder="搜索名称...">
+                <button class="stdm_btn" id="stdm_search_mode" title="切换:仅名称 / 名称+内容"><i class="fa-solid fa-magnifying-glass"></i></button>
                 <button class="stdm_btn" id="stdm_selall" title="全选"><i class="fa-solid fa-check-double"></i></button>
                 <button class="stdm_btn" id="stdm_selnone" title="清空选择"><i class="fa-solid fa-xmark"></i></button>
                 <button class="stdm_btn" id="stdm_refresh" title="刷新列表"><i class="fa-solid fa-rotate"></i></button>
+                <button class="stdm_btn" id="stdm_batch_rename" title="批量重命名"><i class="fa-solid fa-i-cursor"></i></button>
                 <span class="stdm_spacer"></span>
                 <button class="stdm_btn" id="stdm_delete"><i class="fa-solid fa-trash-can"></i> 删除选中 (0)</button>
             </div>
@@ -708,12 +733,22 @@ function buildContent() {
         state.filter = e.target.value.trim().toLowerCase();
         renderList();
     });
+    root.querySelector('#stdm_search_mode').addEventListener('click', async () => {
+        state.searchContent = !state.searchContent;
+        const btn = root.querySelector('#stdm_search_mode');
+        btn.style.color = state.searchContent ? 'var(--stdm-accent-text)' : '';
+        btn.title = state.searchContent ? '当前:名称+内容(点击切换为仅名称)' : '当前:仅名称(点击切换为名称+内容)';
+        toast(state.searchContent ? '搜索范围:名称 + 内容' : '搜索范围:仅名称');
+        // 切到内容搜索时重新走一遍 renderList(visibleItems 会自动按内容过滤)
+        renderList();
+    });
     root.querySelector('#stdm_selall').addEventListener('click', () => {
         visibleItems().forEach(i => state.selected.add(i.id));
         renderList();
     });
     root.querySelector('#stdm_selnone').addEventListener('click', () => { state.selected.clear(); renderList(); });
     root.querySelector('#stdm_refresh').addEventListener('click', () => reload());
+    root.querySelector('#stdm_batch_rename').addEventListener('click', openBatchRename);
     root.querySelector('#stdm_delete').addEventListener('click', deleteSelected);
     root.querySelector('#stdm_history').addEventListener('click', openHistory);
     root.querySelector('#stdm_undo').addEventListener('click', undoLast);
@@ -772,9 +807,19 @@ function setStatus(msg) { const el = $('#stdm_status'); if (el) el.textContent =
 
 function visibleItems() {
     if (!state.filter) return state.items;
-    return state.items.filter(i =>
-        i.name.toLowerCase().includes(state.filter) ||
-        (i.group || '').toLowerCase().includes(state.filter));
+    const kw = state.filter;
+    return state.items.filter(i => {
+        // 名称匹配
+        if (i.name.toLowerCase().includes(kw) || (i.group || '').toLowerCase().includes(kw)) return true;
+        // 内容匹配(开启后):世界书/预设/聊天/主题 尝试搜内容
+        if (state.searchContent) {
+            const inline = i.inline;
+            if (inline) {
+                try { if (JSON.stringify(inline).toLowerCase().includes(kw)) return true; } catch { /* 忽略 */ }
+            }
+        }
+        return false;
+    });
 }
 
 function updateDeleteButton() {
@@ -1099,12 +1144,12 @@ async function deleteSelected() {
 
     if (ad.isCharacter) {
         const note = state.autoDownload
-            ? '删除前会把这些卡打包成一个备份文件下载到本地，并写入「历史」，可随时还原。'
-            : '你已关闭「删除时下载备份」，不会保存备份文件；但仍会写入「历史」，之后可从历史里下载或还原。';
-        if (!confirm(`确定删除 ${targets.length} 个角色卡？\n\n${names}${more}\n\n${note}`)) return;
-        deleteChats = confirm('同时删除这些角色的聊天记录吗？\n\n确定 = 一并删除；取消 = 保留聊天记录。');
+            ? `删除前会把这些卡打包成一个备份文件下载到本地,并移入回收站(${RECYCLE_EXPIRE_DAYS} 天内可还原)。`
+            : `你已关闭「删除时下载备份」,不会保存备份文件;但仍会移入回收站(${RECYCLE_EXPIRE_DAYS} 天内可还原)。`;
+        if (!confirm(`确定删除 ${targets.length} 个角色卡?\n\n${names}${more}\n\n${note}`)) return;
+        deleteChats = confirm('同时删除这些角色的聊天记录吗?\n\n确定 = 一并删除;取消 = 保留聊天记录。');
     } else {
-        if (!confirm(`确定删除 ${targets.length} 项？\n\n${names}${more}\n\n删除前会自动备份到「历史」，可随时下载或还原。`)) return;
+        if (!confirm(`确定删除 ${targets.length} 项?\n\n${names}${more}\n\n删除前会移入回收站(${RECYCLE_EXPIRE_DAYS} 天内可还原)。`)) return;
     }
 
     const canBackup = typeof ad.read === 'function' && typeof ad.backupOf === 'function';
@@ -1162,6 +1207,133 @@ async function undoLast() {
 }
 
 /* ------------------------------------------------------------------ *
+ *  TauriTavern 专属 API 绑定(可选,自动检测)
+ * ------------------------------------------------------------------ */
+
+let __ttApiCache = null;
+async function getTauriApi() {
+    if (__ttApiCache) return __ttApiCache;
+    try {
+        if (typeof window === 'undefined') return null;
+        const host = window.__TAURITAVERN__;
+        if (!host) return null;
+        if (host.ready) await host.ready;
+        __ttApiCache = host.api || null;
+        return __ttApiCache;
+    } catch { return null; }
+}
+
+// 回收站数据优先存 TauriTavern extension.store(跨设备可迁移),fallback 到 IndexedDB
+async function ttStoreSet(key, value) {
+    const api = await getTauriApi();
+    if (!api?.extension?.store) return false;
+    try {
+        await api.extension.store.setJson({ namespace: 'st-data-manager', table: 'recycle', key: String(key), value });
+        return true;
+    } catch (e) { console.warn('[数据管家] extension.store 写入失败', e); return false; }
+}
+async function ttStoreGetAll() {
+    const api = await getTauriApi();
+    if (!api?.extension?.store) return null;
+    try {
+        const keys = await api.extension.store.listKeys({ namespace: 'st-data-manager', table: 'recycle' });
+        const out = [];
+        for (const k of keys) {
+            const v = await api.extension.store.getJson({ namespace: 'st-data-manager', table: 'recycle', key: String(k) });
+            if (v) out.push(v);
+        }
+        return out;
+    } catch (e) { console.warn('[数据管家] extension.store 读取失败', e); return null; }
+}
+async function ttStoreDelete(key) {
+    const api = await getTauriApi();
+    if (!api?.extension?.store) return false;
+    try {
+        await api.extension.store.deleteJson({ namespace: 'st-data-manager', table: 'recycle', key: String(key) });
+        return true;
+    } catch { return false; }
+}
+
+function applyRenameRule(name, rule) {
+    switch (rule.type) {
+        case 'prefix': return rule.value + name;
+        case 'suffix': return name + rule.value;
+        case 'replace': return name.split(rule.find).join(rule.value);
+        case 'regex': {
+            try { return name.replace(new RegExp(rule.find, 'g'), rule.value); }
+            catch { return name; }
+        }
+        default: return name;
+    }
+}
+
+async function openBatchRename() {
+    const ad = adapters[state.tab];
+    if (typeof ad.rename !== 'function') { toast('当前类型不支持改名', 'warning'); return; }
+    const targets = state.items.filter(i => state.selected.has(i.id));
+    if (!targets.length) { toast('先勾选要批量改名的条目', 'warning'); return; }
+
+    const c = ctx();
+    const box = document.createElement('div');
+    box.className = 'stdm-root stdm-editor-wrap';
+    box.dataset.theme = state.theme;
+    box.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;padding:4px;">
+            <div style="font-size:13px;color:var(--stdm-text-2);">对选中的 ${targets.length} 项应用重命名规则:</div>
+            <select id="stdm_rn_type" class="stdm_theme_sel" style="width:100%;">
+                <option value="prefix">加前缀</option>
+                <option value="suffix">加后缀</option>
+                <option value="replace">查找替换(普通文本)</option>
+                <option value="regex">正则替换</option>
+            </select>
+            <input type="text" id="stdm_rn_find" class="stdm_theme_sel" placeholder="查找内容(仅替换/正则)" style="display:none;width:100%;">
+            <input type="text" id="stdm_rn_value" class="stdm_theme_sel" placeholder="前缀/后缀/替换为..." style="width:100%;">
+            <div id="stdm_rn_preview" style="font-size:12px;color:var(--stdm-text-3);max-height:120px;overflow-y:auto;border:1px solid var(--stdm-border);border-radius:6px;padding:8px;"></div>
+        </div>
+    `;
+    const typeSel = box.querySelector('#stdm_rn_type');
+    const findInput = box.querySelector('#stdm_rn_find');
+    const valueInput = box.querySelector('#stdm_rn_value');
+    const preview = box.querySelector('#stdm_rn_preview');
+
+    const refreshPreview = () => {
+        const rule = { type: typeSel.value, find: findInput.value, value: valueInput.value };
+        findInput.style.display = (typeSel.value === 'replace' || typeSel.value === 'regex') ? '' : 'none';
+        const samples = targets.slice(0, 6).map(t => {
+            const nn = applyRenameRule(t.name, rule);
+            return `${t.name} → ${nn}`;
+        });
+        preview.innerHTML = samples.join('<br>') + (targets.length > 6 ? `<br>...等 ${targets.length} 项` : '');
+    };
+    typeSel.addEventListener('change', refreshPreview);
+    findInput.addEventListener('input', refreshPreview);
+    valueInput.addEventListener('input', refreshPreview);
+    refreshPreview();
+
+    if (c.Popup && c.POPUP_TYPE) {
+        const p = new c.Popup(box, c.POPUP_TYPE.CONFIRM, '', { okButton: '应用', cancelButton: '取消', wide: true, allowVerticalScrolling: false });
+        markPopup(p);
+        const result = await p.show();
+        const affirmative = c.POPUP_RESULT ? c.POPUP_RESULT.AFFIRMATIVE : 1;
+        if (result !== affirmative) return;
+    } else {
+        if (!confirm(`对 ${targets.length} 项应用重命名规则?`)) return;
+    }
+
+    const rule = { type: typeSel.value, find: findInput.value, value: valueInput.value };
+    let ok = 0, fail = 0, skip = 0;
+    for (const item of targets) {
+        const newName = applyRenameRule(item.name, rule);
+        if (!newName || newName === item.name) { skip++; continue; }
+        if (/[\\/:*?"<>|]/.test(newName)) { fail++; console.warn('非法字符,跳过', newName); continue; }
+        try { await ad.rename(item, newName); ok++; }
+        catch (e) { console.error(e); fail++; }
+    }
+    toast(`批量改名完成:成功 ${ok},失败 ${fail},跳过 ${skip}`, ok ? 'success' : 'warning');
+    await reload();
+}
+
+/* ------------------------------------------------------------------ *
  *  删除历史面板
  * ------------------------------------------------------------------ */
 
@@ -1170,14 +1342,18 @@ async function renderHistory(container) {
     if (!listEl) return;
     listEl.textContent = '加载中…';
     let all;
-    try { all = await dbGetAll(); }
-    catch (e) { listEl.textContent = '读取历史失败：' + e.message; return; }
+    // 优先 TauriTavern extension.store,fallback IndexedDB
+    try { all = await ttStoreGetAll(); } catch { all = null; }
+    if (!all) {
+        try { all = await dbGetAll(); }
+        catch (e) { listEl.textContent = '读取回收站失败：' + e.message; return; }
+    }
     all.sort((a, b) => b.id - a.id);
     listEl.innerHTML = '';
     if (!all.length) {
         const empty = document.createElement('div');
         empty.className = 'stdm-empty';
-        empty.textContent = '暂无删除历史';
+        empty.textContent = '回收站为空';
         listEl.appendChild(empty);
         return;
     }
@@ -1206,6 +1382,20 @@ async function renderHistory(container) {
         time.textContent = fmtTime(rec.time || Math.floor(rec.id / 1000));
         top.append(count, time);
 
+        // 回收站条目显示剩余过期天数(auto 自动备份不过期)
+        if (!rec.auto && rec.time) {
+            const t = new Date(rec.time).getTime();
+            if (!isNaN(t)) {
+                const leftMs = RECYCLE_EXPIRE_MS - (Date.now() - t);
+                const leftDays = Math.max(0, Math.ceil(leftMs / (24 * 60 * 60 * 1000)));
+                const expire = document.createElement('span');
+                expire.className = 'stdm-hist-time';
+                expire.style.color = leftDays <= 1 ? 'var(--stdm-danger)' : '';
+                expire.textContent = leftDays > 0 ? `${leftDays} 天后过期` : '即将过期';
+                top.append(expire);
+            }
+        }
+
         const nm = document.createElement('div');
         nm.className = 'stdm-hist-names';
         const namesArr = Array.isArray(rec.names) ? rec.names : [];
@@ -1233,7 +1423,7 @@ async function renderHistory(container) {
         rm.className = 'stdm_btn stdm_danger'; rm.textContent = '删除记录';
         rm.addEventListener('click', async () => {
             if (!confirm('删除这条历史记录？其中的备份内容会一并移除，不可恢复。')) return;
-            try { await dbDelete(rec.id); await renderHistory(container); }
+            try { await dbDelete(rec.id); try { await ttStoreDelete(rec.id); } catch { /* 忽略 */ } await renderHistory(container); }
             catch (e) { toast('删除失败：' + e.message, 'error'); }
         });
         acts.append(dl, rs, rm);
@@ -1252,7 +1442,7 @@ async function openHistory() {
     head.className = 'stdm-hist-head';
     const title = document.createElement('span');
     title.className = 'stdm-hist-title';
-    title.textContent = '删除历史';
+    title.textContent = `回收站(保留 ${RECYCLE_EXPIRE_DAYS} 天)`;
     const clear = document.createElement('button');
     clear.className = 'stdm_btn stdm_danger';
     clear.textContent = '清空全部';
