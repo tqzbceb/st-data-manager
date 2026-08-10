@@ -683,45 +683,18 @@ function buildContent() {
         reload();
     });
 
-    // 上下滑收起/展开 header+tabs+toolbar:向上滑收,向下滑展
-    // 同时监听 scroll 和 touch 事件,兼容手机端
+    // 只有拉到列表最顶部时才展开 header;一旦向下滚就收起
     const listEl = root.querySelector('#stdm_list');
-    let lastScrollTop = 0;
-    let lastTouchY = null;
-
     const setCollapsed = (collapsed) => {
         const has = root.classList.contains('stdm_collapsed_top');
-        if (collapsed && !has) {
-            root.classList.add('stdm_collapsed_top');
-            console.debug('[数据管家] 收起顶部');
-        } else if (!collapsed && has) {
-            root.classList.remove('stdm_collapsed_top');
-            console.debug('[数据管家] 展开顶部');
-        }
+        if (collapsed && !has) root.classList.add('stdm_collapsed_top');
+        else if (!collapsed && has) root.classList.remove('stdm_collapsed_top');
     };
-
-    // 桌面/手机通用:scroll 事件
     listEl.addEventListener('scroll', () => {
-        const cur = listEl.scrollTop;
-        const delta = cur - lastScrollTop;
-        if (delta > 3 && cur > 50) setCollapsed(true);
-        else if (delta < -3 || cur <= 10) setCollapsed(false);
-        lastScrollTop = cur;
+        // 滚动位置 > 20px 就收起,回到顶部 (<=10) 才展开
+        if (listEl.scrollTop > 20) setCollapsed(true);
+        else if (listEl.scrollTop <= 10) setCollapsed(false);
     }, { passive: true });
-
-    // 手机触屏:touchmove 判断手指滑动方向(手指上滑=内容向上滚=收起)
-    listEl.addEventListener('touchstart', (e) => {
-        lastTouchY = e.touches[0].clientY;
-    }, { passive: true });
-    listEl.addEventListener('touchmove', (e) => {
-        if (lastTouchY == null) return;
-        const cur = e.touches[0].clientY;
-        const dy = lastTouchY - cur; // 手指向上滑 dy>0,向下滑 dy<0
-        if (dy > 5 && listEl.scrollTop > 30) setCollapsed(true);
-        else if (dy < -5 || listEl.scrollTop <= 5) setCollapsed(false);
-        lastTouchY = cur;
-    }, { passive: true });
-    listEl.addEventListener('touchend', () => { lastTouchY = null; }, { passive: true });
 
     const themeSel = root.querySelector('#stdm_theme');
     for (const t of THEMES) {
@@ -755,6 +728,8 @@ function updateDeleteButton() {
 function renderList() {
     const list = $('#stdm_list');
     if (!list) return;
+    // 记录当前滚动位置,渲染完后恢复,避免展开分组时被弹回顶部
+    const prevScroll = list.scrollTop;
     list.innerHTML = '';
     const items = visibleItems();
     if (!items.length) {
@@ -763,18 +738,27 @@ function renderList() {
         return;
     }
     const ad = adapters[state.tab];
+
+    // 预设页:过滤掉空分组,不显示
+    let groupsToShow = null;
+    if (state.collapseEnabled) {
+        const groupCounts = new Map();
+        for (const it of items) groupCounts.set(it.group, (groupCounts.get(it.group) || 0) + 1);
+        groupsToShow = new Set([...groupCounts.entries()].filter(([, n]) => n > 0).map(([g]) => g));
+    }
+
     let currentGroup = null;
     for (const item of items) {
+        // 空分组跳过
+        if (groupsToShow && !groupsToShow.has(item.group)) continue;
         if (item.group !== currentGroup) {
             currentGroup = item.group;
             const g = document.createElement('div');
             g.className = 'stdm_group';
-            // 预设页:支持折叠分组
             if (state.collapseEnabled) {
                 g.classList.add('stdm_group-collapsible');
                 const isCollapsed = state.collapsedGroups.has(currentGroup);
                 g.classList.toggle('stdm_collapsed', isCollapsed);
-                // 统计该组条目数
                 const count = items.filter(x => x.group === currentGroup).length;
                 g.innerHTML = `<i class="fa-solid fa-chevron-down stdm_group_arrow"></i><span>${currentGroup}</span><span class="stdm_group_count">${count}</span>`;
                 g.addEventListener('click', () => {
@@ -790,7 +774,6 @@ function renderList() {
             }
             list.appendChild(g);
         }
-        // 折叠的分组跳过条目
         if (state.collapseEnabled && state.collapsedGroups.has(item.group)) continue;
         const row = document.createElement('div');
         row.className = 'stdm_row';
@@ -853,6 +836,8 @@ function renderList() {
         row.appendChild(actions);
         list.appendChild(row);
     }
+    // 恢复滚动位置
+    list.scrollTop = prevScroll;
     updateDeleteButton();
 }
 
