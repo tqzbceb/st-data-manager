@@ -143,28 +143,13 @@ dialog.popup.stdm-popup,
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
     flex-wrap: wrap;
-    transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
-    max-height: 120px;
-    overflow: hidden;
 }
 
-/* 上滑时收起 header/tabs/toolbar */
+/* 上滑时收起 header/tabs/toolbar — 直接 display:none,最可靠 */
 .stdm-root.stdm_collapsed_top #stdm_header,
 .stdm-root.stdm_collapsed_top #stdm_tabs,
 .stdm-root.stdm_collapsed_top #stdm_toolbar {
-    max-height: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    opacity: 0;
-    border-bottom: none;
-    pointer-events: none;
-}
-
-/* tabs/toolbar 也加 transition,与 header 同步动画 */
-#stdm_tabs, #stdm_toolbar {
-    transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
-    max-height: 120px;
-    overflow: hidden;
+    display: none !important;
 }
 
 #stdm_header .stdm_title {
