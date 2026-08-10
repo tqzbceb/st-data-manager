@@ -612,18 +612,18 @@ function buildContent() {
             <label class="stdm_flexrow">
                 <input type="checkbox" id="stdm_autodl" checked> 删除时下载备份
             </label>
-            <button class="stdm_btn" id="stdm_history">历史</button>
-            <button class="stdm_btn" id="stdm_undo" disabled>撤销</button>
+            <button class="stdm_btn" id="stdm_history" title="删除历史"><i class="fa-solid fa-clock-rotate-left"></i> 历史</button>
+            <button class="stdm_btn" id="stdm_undo" disabled title="撤销上次删除"><i class="fa-solid fa-rotate-left"></i> 撤销</button>
         </div>
         <div id="stdm_tabs"></div>
         <div id="stdm_toolbar">
             <select id="stdm_charpick" style="display:none;"></select>
-            <input type="text" id="stdm_search" placeholder="搜索名称…">
-            <button class="stdm_btn" id="stdm_selall">全选</button>
-            <button class="stdm_btn" id="stdm_selnone">清空</button>
-            <button class="stdm_btn" id="stdm_refresh">刷新</button>
+            <input type="text" id="stdm_search" placeholder="搜索名称...">
+            <button class="stdm_btn" id="stdm_selall" title="全选"><i class="fa-solid fa-check-double"></i></button>
+            <button class="stdm_btn" id="stdm_selnone" title="清空选择"><i class="fa-solid fa-xmark"></i></button>
+            <button class="stdm_btn" id="stdm_refresh" title="刷新列表"><i class="fa-solid fa-rotate"></i></button>
             <span class="stdm_spacer"></span>
-            <button class="stdm_btn stdm_danger" id="stdm_delete">删除选中 (0)</button>
+            <button class="stdm_btn" id="stdm_delete"><i class="fa-solid fa-trash-can"></i> 删除选中 (0)</button>
         </div>
         <div id="stdm_list"></div>
         <div id="stdm_status"></div>`;
@@ -686,7 +686,7 @@ function updateDeleteButton() {
     const btn = $('#stdm_delete');
     if (!btn) return;
     const n = state.selected.size;
-    btn.textContent = `删除选中 (${n})`;
+    btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> 删除选中 (${n})`;
     btn.disabled = n === 0;
 }
 
@@ -720,10 +720,13 @@ function renderList() {
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = state.selected.has(item.id);
-        cb.addEventListener('change', () => {
+        const syncSelected = () => {
             if (cb.checked) state.selected.add(item.id); else state.selected.delete(item.id);
+            row.classList.toggle('stdm_selected', cb.checked);
             updateDeleteButton();
-        });
+        };
+        row.classList.toggle('stdm_selected', cb.checked);
+        cb.addEventListener('change', syncSelected);
         main.appendChild(cb);
 
         if (item.thumb) {
@@ -749,30 +752,21 @@ function renderList() {
         }
         row.appendChild(main);
 
-        // 第二行:操作按钮,右对齐
+        // 第二行:操作按钮,右对齐,图标化
         const actions = document.createElement('div');
         actions.className = 'stdm_rowactions';
-        if (ad.renamable) {
+        const mkIconBtn = (icon, tip, cls, fn) => {
             const b = document.createElement('button');
-            b.className = 'stdm_btn'; b.textContent = '改名';
-            b.addEventListener('click', () => renameItem(item));
-            actions.appendChild(b);
-        }
-        if (ad.editable) {
-            const b = document.createElement('button');
-            b.className = 'stdm_btn'; b.textContent = '编辑';
-            b.addEventListener('click', () => editItem(item));
-            actions.appendChild(b);
-        }
-        const dl = document.createElement('button');
-        dl.className = 'stdm_btn'; dl.textContent = '导出';
-        dl.addEventListener('click', () => exportItem(item));
-        actions.appendChild(dl);
-
-        const del = document.createElement('button');
-        del.className = 'stdm_btn stdm_danger'; del.textContent = '删除';
-        del.addEventListener('click', () => { state.selected.clear(); state.selected.add(item.id); deleteSelected(); });
-        actions.appendChild(del);
+            b.className = `stdm_btn stdm_icon ${cls || ''}`.trim();
+            b.title = tip;
+            b.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+            b.addEventListener('click', fn);
+            return b;
+        };
+        if (ad.renamable) actions.appendChild(mkIconBtn('fa-pen', '改名', '', () => renameItem(item)));
+        if (ad.editable) actions.appendChild(mkIconBtn('fa-pen-to-square', '编辑', '', () => editItem(item)));
+        actions.appendChild(mkIconBtn('fa-download', '导出', '', () => exportItem(item)));
+        actions.appendChild(mkIconBtn('fa-trash-can', '删除', 'stdm_danger', () => { state.selected.clear(); state.selected.add(item.id); deleteSelected(); }));
 
         row.appendChild(actions);
         list.appendChild(row);
@@ -975,7 +969,7 @@ async function deleteSelected() {
     if (entries.length) {
         state.lastBatch = { tab: state.tab, entries };
         const undo = $('#stdm_undo');
-        if (undo) { undo.disabled = false; undo.textContent = `撤销 (${entries.length})`; }
+        if (undo) { undo.disabled = false; undo.innerHTML = `<i class="fa-solid fa-rotate-left"></i> 撤销 (${entries.length})`; }
         await saveHistory(state.tab, entries);
         if (state.autoDownload) {
             try { await downloadArchive(state.tab, entries); }
@@ -999,7 +993,7 @@ async function undoLast() {
     await restoreEntries(tab, entries);
     state.lastBatch = null;
     const undo = $('#stdm_undo');
-    if (undo) { undo.disabled = true; undo.textContent = '撤销'; }
+    if (undo) { undo.disabled = true; undo.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销'; }
 }
 
 /* ------------------------------------------------------------------ *
