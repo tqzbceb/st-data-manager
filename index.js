@@ -910,7 +910,16 @@ async function switchTab(key) {
     // 聊天记录:即使 needsCharacter=false 也显示选择器(提供"全部"选项,默认全部)
     const showPick = !!ad.needsCharacter || key === 'chats';
     if (pick) pick.style.display = showPick ? '' : 'none';
-    if (showPick) { setStatus('正在读取角色列表...'); await populateCharacterPicker(); }
+    // 立即清空旧列表 + 显示加载占位,避免旧 tab 内容残留
+    state.items = [];
+    const list = $('#stdm_list');
+    if (list) {
+        list.innerHTML = '<div class="stdm-empty">加载中…</div>';
+        list.scrollTop = 0;
+    }
+    // 切 tab 时把顶部展开,方便直接用搜索框
+    if (rootEl) rootEl.classList.remove('stdm_collapsed_top');
+    if (showPick) { await populateCharacterPicker(); }
     await reload();
 }
 
