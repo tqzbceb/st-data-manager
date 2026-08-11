@@ -74,6 +74,7 @@ dialog.popup.stdm-popup,
     min-width: 360px;
     min-height: 280px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    text-align: left !important;
 }
 
 .stdm-popup .popup-content {
@@ -85,6 +86,9 @@ dialog.popup.stdm-popup,
     overflow: hidden !important;
     min-width: 0 !important;
     min-height: 0 !important;
+    text-align: left !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
 }
 
 .stdm-popup .popup-content > .stdm-root { flex: 1 1 auto; min-height: 0; min-width: 0; }
@@ -93,9 +97,11 @@ dialog.popup.stdm-popup,
     padding: 6px 12px;
     border-top: 1px solid var(--stdm-border);
     background: var(--stdm-bg-elev);
-    display: flex;
-    justify-content: flex-end;
+    display: flex !important;
+    justify-content: flex-end !important;
     gap: 6px;
+    text-align: left !important;
+    align-items: center !important;
 }
 .stdm-popup .popup-controls .menu_button {
     background: var(--stdm-bg-hover);
@@ -122,16 +128,18 @@ dialog.popup.stdm-popup,
     box-sizing: border-box;
     color: var(--stdm-text);
     background: var(--stdm-bg);
-    text-align: left;
+    text-align: left !important;
     font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     font-size: 13px;
     line-height: 1.5;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
 }
 
 .stdm-root *,
 .stdm-root *::before,
-.stdm-root *::after { box-sizing: border-box; }
+.stdm-root *::after { box-sizing: border-box; text-align: left; }
 
 /* ---------- 顶部 header ---------- */
 #stdm_header {
@@ -384,6 +392,8 @@ dialog.popup.stdm-popup,
     align-items: center;
     gap: 6px;
     user-select: none;
+    justify-content: flex-start !important;
+    text-align: left !important;
 }
 
 /* 可折叠分组 */
@@ -459,6 +469,8 @@ dialog.popup.stdm-popup,
     max-width: 100%;
     min-width: 0;
     flex: 0 0 auto;
+    justify-content: flex-start !important;
+    text-align: left !important;
 }
 
 .stdm_avatar {
@@ -524,6 +536,7 @@ dialog.popup.stdm-popup,
     color: var(--stdm-text-3);
     min-height: 1.4em;
     background: var(--stdm-bg-elev);
+    text-align: left !important;
 }
 
 /* ---------- 编辑器 ---------- */
