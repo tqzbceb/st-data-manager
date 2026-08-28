@@ -7,15 +7,16 @@
 /* ---------- Claude 基础变量 ---------- */
 .stdm-root,
 .stdm-popup {
-    --stdm-bg: #1c1917;
-    --stdm-bg-elev: #292524;
-    --stdm-bg-hover: #322d2b;
-    --stdm-bg-active: #3b3533;
-    --stdm-border: #3a3533;
-    --stdm-border-strong: #4a4441;
+    --stdm-bg: #161311;
+    --stdm-bg-elev: #201c19;
+    --stdm-bg-hover: #2a2420;
+    --stdm-bg-active: #332c27;
+    --stdm-border: #342e2a;
+    --stdm-border-strong: #4a423d;
+    --stdm-border-faint: rgba(236, 231, 226, 0.055);
     --stdm-text: #ece7e2;
-    --stdm-text-2: #b8b0a8;
-    --stdm-text-3: #8a8178;
+    --stdm-text-2: #b6ada4;
+    --stdm-text-3: #877d73;
     --stdm-accent: #d97757;
     --stdm-accent-hover: #e8896b;
     --stdm-accent-soft: rgba(217, 119, 87, 0.16);
@@ -25,6 +26,7 @@
     --stdm-radius: 8px;
     --stdm-radius-sm: 6px;
     --stdm-radius-lg: 12px;
+    --stdm-shadow: 0 12px 32px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.20);
 }
 
 /* 其他主题:在 Claude 棕底基调上调 accent,不再换整底 */
@@ -107,10 +109,12 @@ dialog.popup.stdm-popup,
     background: var(--stdm-bg-hover);
     border: 1px solid var(--stdm-border);
     color: var(--stdm-text);
-    padding: 6px 14px;
+    padding: 7px 16px;
     border-radius: var(--stdm-radius-sm);
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
 }
 .stdm-popup .popup-controls .menu_button:hover {
     background: var(--stdm-bg-active);
@@ -142,15 +146,43 @@ dialog.popup.stdm-popup,
 .stdm-root *::before,
 .stdm-root *::after { box-sizing: border-box; text-align: left; }
 
+/* 键盘可达性:统一焦点环;文本选区用主题色 */
+.stdm-root :focus-visible {
+    outline: 2px solid var(--stdm-accent);
+    outline-offset: 2px;
+}
+.stdm-root ::selection { background: var(--stdm-accent-soft); }
+.stdm-root { caret-color: var(--stdm-accent); }
+
 /* ---------- 顶部 header ---------- */
 #stdm_header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 10px;
+    padding: 11px 16px;
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
     flex-wrap: wrap;
+}
+
+#stdm_header .stdm_title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 650;
+    font-size: 13.5px;
+    color: var(--stdm-text);
+    letter-spacing: 0.02em;
+    margin-right: auto;
+}
+#stdm_header .stdm_title::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--stdm-accent);
+    box-shadow: 0 0 8px var(--stdm-accent-soft);
+    flex: 0 0 auto;
 }
 
 /* 把 header/tabs/toolbar 包进一个悬浮容器:
@@ -168,20 +200,12 @@ dialog.popup.stdm-popup,
     background: var(--stdm-bg);
     max-height: 300px;
     overflow: hidden;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+    box-shadow: var(--stdm-shadow);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .stdm-root.stdm_collapsed_top .stdm_top_wrap {
     transform: translateY(-102%);
-}
-
-#stdm_header .stdm_title {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--stdm-text);
-    letter-spacing: 0.01em;
-    margin-right: auto;
 }
 
 #stdm_header label {
@@ -205,16 +229,16 @@ dialog.popup.stdm-popup,
     font-size: 12px;
     outline: none;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 .stdm_theme_sel:hover { background: var(--stdm-bg-hover); }
-.stdm_theme_sel:focus { border-color: var(--stdm-accent); }
+.stdm_theme_sel:focus { border-color: var(--stdm-accent); box-shadow: 0 0 0 3px var(--stdm-accent-soft); }
 
 /* ---------- 标签页 ---------- */
 #stdm_tabs {
     display: flex;
-    gap: 2px;
-    padding: 0 14px;
+    gap: 4px;
+    padding: 0 16px;
     flex: 0 0 auto;
     overflow-x: auto;
     overflow-y: hidden;
@@ -227,7 +251,7 @@ dialog.popup.stdm-popup,
 
 .stdm_tab {
     position: relative;
-    padding: 10px 12px;
+    padding: 11px 13px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
@@ -244,20 +268,26 @@ dialog.popup.stdm-popup,
 .stdm_tab.stdm_active::after {
     content: '';
     position: absolute;
-    left: 10px;
-    right: 10px;
+    left: 11px;
+    right: 11px;
     bottom: -1px;
-    height: 2px;
+    height: 2.5px;
+    border-radius: 3px 3px 0 0;
     background: var(--stdm-accent);
-    border-radius: 2px 2px 0 0;
+    box-shadow: 0 -1px 10px var(--stdm-accent-soft);
+    animation: stdm-tab-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes stdm-tab-in {
+    from { transform: scaleX(0.3); opacity: 0; }
+    to { transform: scaleX(1); opacity: 1; }
 }
 
 /* ---------- 工具栏 ---------- */
 #stdm_toolbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: 7px;
+    padding: 10px 16px 12px;
     flex: 0 0 auto;
     background: var(--stdm-bg-elev);
     border-bottom: 1px solid var(--stdm-border);
@@ -269,22 +299,26 @@ dialog.popup.stdm-popup,
     color: var(--stdm-text);
     background: var(--stdm-bg);
     border: 1px solid var(--stdm-border);
-    border-radius: var(--stdm-radius-sm);
-    padding: 6px 10px;
+    border-radius: var(--stdm-radius);
+    padding: 7px 12px;
     font-size: 13px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 #stdm_toolbar input[type="text"]::placeholder { color: var(--stdm-text-3); }
 #stdm_toolbar input[type="text"]:focus,
-#stdm_toolbar select:focus { border-color: var(--stdm-accent); background: var(--stdm-bg-hover); }
+#stdm_toolbar select:focus {
+    border-color: var(--stdm-accent);
+    background: var(--stdm-bg-hover);
+    box-shadow: 0 0 0 3px var(--stdm-accent-soft);
+}
 
 #stdm_search { flex: 1 1 200px; min-width: 140px; }
 
 /* ---------- 按钮 ---------- */
 .stdm_btn {
-    padding: 6px 12px;
+    padding: 7px 13px;
     border-radius: var(--stdm-radius-sm);
     border: 1px solid var(--stdm-border);
     background: var(--stdm-bg-hover);
@@ -293,7 +327,7 @@ dialog.popup.stdm-popup,
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.08s;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -301,21 +335,24 @@ dialog.popup.stdm-popup,
 }
 
 .stdm_btn:hover { background: var(--stdm-bg-active); border-color: var(--stdm-border-strong); }
-.stdm_btn:active { transform: translateY(0.5px); }
+.stdm_btn:active { transform: translateY(1px); }
 .stdm_btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+.stdm_btn[disabled]:hover { background: var(--stdm-bg-hover); border-color: var(--stdm-border); }
 
 #stdm_delete {
     background: var(--stdm-danger);
     border-color: var(--stdm-danger);
     color: #fff;
     font-weight: 600;
+    box-shadow: 0 2px 10px var(--stdm-danger-soft);
 }
 #stdm_delete:hover:not([disabled]) { background: #dc2626; border-color: #dc2626; }
-#stdm_delete[disabled] { background: var(--stdm-bg-hover); border-color: var(--stdm-border); color: var(--stdm-text-3); }
+#stdm_delete:active:not([disabled]) { transform: translateY(1px); }
+#stdm_delete[disabled] { background: var(--stdm-bg-hover); border-color: var(--stdm-border); color: var(--stdm-text-3); box-shadow: none; }
 
 /* 行内图标按钮 */
 .stdm_btn.stdm_icon {
-    padding: 4px 7px;
+    padding: 5px 8px;
     font-size: 12px;
     border: 1px solid transparent;
     background: transparent;
@@ -324,7 +361,7 @@ dialog.popup.stdm-popup,
     line-height: 1;
 }
 .stdm_btn.stdm_icon:hover {
-    background: var(--stdm-bg-hover);
+    background: var(--stdm-bg-active);
     color: var(--stdm-text);
     border-color: var(--stdm-border);
 }
@@ -345,30 +382,39 @@ dialog.popup.stdm-popup,
 .stdm-root input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
-    width: 15px;
-    height: 15px;
-    border-radius: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
     border: 1.5px solid var(--stdm-border-strong);
     background: var(--stdm-bg);
     cursor: pointer;
     position: relative;
     flex: 0 0 auto;
     margin: 0;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .stdm-root input[type="checkbox"]:hover { border-color: var(--stdm-accent); }
-.stdm-root input[type="checkbox"]:checked { background: var(--stdm-accent); border-color: var(--stdm-accent); }
+.stdm-root input[type="checkbox"]:checked {
+    background: var(--stdm-accent);
+    border-color: var(--stdm-accent);
+    box-shadow: 0 1px 6px var(--stdm-accent-soft);
+}
 .stdm-root input[type="checkbox"]:checked::after {
     content: '';
     position: absolute;
-    left: 4px;
-    top: 1px;
+    left: 4.5px;
+    top: 1.5px;
     width: 4px;
-    height: 7px;
+    height: 7.5px;
     border: solid #fff;
     border-width: 0 2px 2px 0;
     transform: rotate(43deg);
+    animation: stdm-check-pop 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes stdm-check-pop {
+    from { transform: rotate(43deg) scale(0.3); opacity: 0; }
+    to { transform: rotate(43deg) scale(1); opacity: 1; }
 }
 
 /* ---------- 列表 ---------- */
@@ -386,18 +432,30 @@ dialog.popup.stdm-popup,
 
 #stdm_list::-webkit-scrollbar { width: 8px; }
 #stdm_list::-webkit-scrollbar-track { background: transparent; }
-#stdm_list::-webkit-scrollbar-thumb { background: var(--stdm-border-strong); border-radius: 4px; }
-#stdm_list::-webkit-scrollbar-thumb:hover { background: var(--stdm-text-3); }
+#stdm_list::-webkit-scrollbar-thumb {
+    background: var(--stdm-border-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+#stdm_list::-webkit-scrollbar-thumb:hover { background: var(--stdm-text-3); background-clip: padding-box; }
+
+/* 顶部悬浮工具区的等高占位块(高度由 JS 设置),保证展开时首行不被遮挡 */
+.stdm_top_pad { width: 100%; }
 
 .stdm_group {
-    padding: 14px 14px 6px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 12px 16px 7px;
     font-weight: 600;
     font-size: 11px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--stdm-text-3);
     background: var(--stdm-bg);
-    border-bottom: 1px solid var(--stdm-border);
+    border-bottom: 1px solid var(--stdm-border-faint);
+    box-shadow: 0 1px 0 var(--stdm-border-faint);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -437,19 +495,13 @@ dialog.popup.stdm-popup,
     letter-spacing: 0;
 }
 
-/* 折叠分组的条目用 max-height 动画 */
-.stdm_row {
-    /* 已经在前面定义,这里补 transition 用于折叠展开 */
-    transition: background 0.12s;
-}
-
 /* 行 */
 .stdm_row {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 8px 14px 6px;
-    border-bottom: 1px solid var(--stdm-border);
+    padding: 9px 16px 7px;
+    border-bottom: 1px solid var(--stdm-border-faint);
     transition: background 0.12s;
     position: relative;
     width: 100%;
@@ -466,8 +518,9 @@ dialog.popup.stdm-popup,
     left: 0;
     top: 0;
     bottom: 0;
-    width: 2px;
+    width: 2.5px;
     background: var(--stdm-accent);
+    box-shadow: 0 0 8px var(--stdm-accent-soft);
 }
 
 /* 第一行:checkbox + avatar + name + meta */
@@ -484,12 +537,13 @@ dialog.popup.stdm-popup,
 }
 
 .stdm_avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: var(--stdm-radius-sm);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--stdm-radius);
     object-fit: cover;
     flex: 0 0 auto;
-    border: 1px solid var(--stdm-border);
+    border: 1px solid var(--stdm-border-strong);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* 关键:名字用 white-space:nowrap + flex:1 + min-width:0 + overflow hidden 保证中文一行显示且超出省略 */
@@ -511,22 +565,21 @@ dialog.popup.stdm-popup,
     color: var(--stdm-text-3);
     font-size: 11px;
     font-variant-numeric: tabular-nums;
-    padding: 2px 7px;
+    padding: 2px 8px;
     border-radius: 999px;
     background: var(--stdm-bg-hover);
-    border: 1px solid var(--stdm-border);
     white-space: nowrap;
 }
 
 /* 第二行:操作按钮,右对齐 */
 .stdm_rowactions {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     justify-content: flex-end;
     width: 100%;
     padding-left: 23px;
     opacity: 0;
-    transition: opacity 0.12s;
+    transition: opacity 0.15s;
 }
 
 .stdm_row:hover .stdm_rowactions,
@@ -540,9 +593,10 @@ dialog.popup.stdm-popup,
 /* ---------- 状态栏 ---------- */
 #stdm_status {
     flex: 0 0 auto;
-    padding: 5px 14px;
+    padding: 6px 16px;
     border-top: 1px solid var(--stdm-border);
     font-size: 11px;
+    letter-spacing: 0.02em;
     color: var(--stdm-text-3);
     min-height: 1.4em;
     background: var(--stdm-bg-elev);
@@ -578,7 +632,7 @@ dialog.popup.stdm-popup,
     -webkit-overflow-scrolling: touch;
 }
 
-.stdm_editor_text:focus { border-color: var(--stdm-accent); }
+.stdm_editor_text:focus { border-color: var(--stdm-accent); box-shadow: 0 0 0 3px var(--stdm-accent-soft); }
 .stdm_editor_hint { font-size: 11px; color: var(--stdm-text-3); }
 
 /* ---------- 极旧版本回退浮层 ---------- */
@@ -692,11 +746,14 @@ dialog.popup.stdm-popup,
 }
 
 .stdm-empty {
-    padding: 48px 20px;
-    text-align: center;
+    padding: 56px 20px;
+    text-align: center !important;
     color: var(--stdm-text-3);
     font-size: 13px;
+    line-height: 1.9;
 }
+
+.stdm-hist-row { border-bottom: 1px solid var(--stdm-border-faint); }
 
 @media (pointer: coarse), (max-width: 720px) {
     .stdm-hist-actions { flex: 1 1 100%; margin-top: 6px; }
@@ -707,6 +764,8 @@ dialog.popup.stdm-popup,
     #stdm_delete { flex: 1 1 100% !important; padding: 13px; font-size: 14px; justify-content: center; }
     .stdm_tab { padding: 12px 14px; font-size: 14px; }
     .stdm_theme_sel { flex: 1 1 auto; padding: 9px; font-size: 13px; }
+    .stdm_rowactions { gap: 6px; }
+    .stdm_rowactions .stdm_btn { padding: 9px 11px; }
 }
 
 /* ---------- 工具类 ---------- */

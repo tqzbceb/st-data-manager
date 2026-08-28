@@ -672,11 +672,20 @@ function setCollapsed(collapsed) {
     if (rootEl) rootEl.classList.toggle('stdm_collapsed_top', collapsed);
 }
 
-// 列表滚动内容顶部留出与工具区等高的空白,展开时工具区正好盖住它
+// 列表滚动内容顶部放一个与工具区等高的占位块(不用 padding:Chrome 的 sticky
+// 吸附基准会被 padding-top 顶到留白下缘,收起后顶部会留一条空洞)。
+// 展开时占位块正好被悬浮工具区盖住;分组头 sticky top:0 可正常钉到列表顶。
 function syncTopPadding() {
     if (!topWrapEl) return;
     const listEl = $('#stdm_list');
-    if (listEl) listEl.style.paddingTop = topWrapEl.offsetHeight + 'px';
+    if (!listEl) return;
+    let pad = listEl.querySelector('.stdm_top_pad');
+    if (!pad) {
+        pad = document.createElement('div');
+        pad.className = 'stdm_top_pad';
+        listEl.insertBefore(pad, listEl.firstChild);
+    }
+    pad.style.height = topWrapEl.offsetHeight + 'px';
 }
 
 function $(sel) { return rootEl ? rootEl.querySelector(sel) : null; }
@@ -850,6 +859,7 @@ function renderList() {
     // 记录当前滚动位置,渲染完后恢复
     const prevScroll = list.scrollTop;
     list.innerHTML = '';
+    syncTopPadding();
     const items = visibleItems();
     if (!items.length) {
         list.innerHTML = '<div style="opacity:.6;padding:20px;text-align:center;">没有条目</div>';
@@ -1018,6 +1028,7 @@ async function switchTab(key) {
     if (list) {
         list.innerHTML = '<div class="stdm-empty">加载中…</div>';
         list.scrollTop = 0;
+        syncTopPadding();
     }
     // 切 tab 时把顶部展开(scrollTop 归零),方便直接用搜索框
     if (rootEl) rootEl.classList.remove('stdm_collapsed_top');
