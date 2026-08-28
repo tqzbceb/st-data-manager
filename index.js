@@ -220,6 +220,13 @@ async function getSettings(force = false) {
     return settingsCache;
 }
 
+// 从各种日期形态("2024-1-5@13h37m20s"、ISO、时间戳字符串)提取 YYYY-MM-DD,失败返回空
+function fmtDateStr(s) {
+    const m = String(s ?? '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return '';
+    return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+}
+
 const adapters = {
     presets: {
         label: '预设',
@@ -345,7 +352,7 @@ const adapters = {
                 name: c.name || c.avatar,
                 group: '角色卡',
                 avatar: c.avatar,
-                meta: c.create_date ? String(c.create_date).split('@')[0] : '',
+                meta: fmtDateStr(c.create_date),
                 thumb: `/thumbnail?type=avatar&file=${encodeURIComponent(c.avatar)}`,
             }));
         },
@@ -450,54 +457,92 @@ const adapters = {
         // needsCharacter 不再是 true:支持"全部聊天"模式
         needsCharacter: false,
         async load(st) {
-            // st.avatar 为空字符串 = 全部;否则按角色筛选
-            // 兼容:旧版酒馆 /api/chats/search 必须传 avatar_url,否则会 400,这时 fallback 到第一个角色
-            let avatar = st.avatar;
-            if (!avatar && state.characters?.length) {
-                // 尝试"全部"模式;若失败下面 catch 会 fallback
-                avatar = '';
-            }
-            const filter = avatar ? { avatar_url: avatar } : {};
+            // st.avatar 为空字符串 = 全部;否则按角色筛选。
+            // 部分实现(如 TauriTavern)不支持无角色过滤的查询,会静默返回空数组 —
+            // 这时逐角色聚合,保证"全部聊天"真的能列出全部,而不是误显示"共 0 条"。
             let list;
-            try {
-                list = await post('/api/chats/search', filter);
-            } catch (e) {
-                // 旧版酒馆"全部"模式不支持,fallback 到第一个角色
-                if (!avatar && state.characters?.length) {
-                    console.warn('[数据管家] 当前版本不支持列出全部聊天,fallback 到第一个角色', e);
-                    avatar = state.characters[0].avatar;
-                    list = await post('/api/chats/search', { avatar_url: avatar });
-                } else {
-                    throw e;
+            if (!st.avatar) {
+                try {
+                    list = await post('/api/chats/search', {});
+                } catch (e) {
+                    console.warn('[数据管家] 全部聊天查询失败,改为逐角色聚合', e);
+                    list = [];
                 }
+                if (!Array.isArray(list) || list.length === 0) {
+                    const merged = [];
+                    const seen = new Set();
+                    for (const ch of state.characters || []) {
+                        try {
+                            const sub = await post('/api/chats/search', { avatar_url: ch.avatar });
+                            for (const c of (Array.isArray(sub) ? sub : [])) {
+                                // 聚合时把角色信息标记回结果,后续 ch_name/分组都要用
+                                if (!c.avatar_url) c.avatar_url = ch.avatar;
+                                if (!c.character_name) c.character_name = ch.name;
+                                const k = `${c.avatar_url}::${c.file_name}`;
+                                if (seen.has(k)) continue;
+                                seen.add(k);
+                                merged.push(c);
+                            }
+                        } catch (e) { console.warn(`[数据管家] 角色 ${ch.name} 的聊天查询失败,跳过`, e); }
+                    }
+                    list = merged;
+                }
+            } else {
+                list = await post('/api/chats/search', { avatar_url: st.avatar });
             }
             const arr = Array.isArray(list) ? list : [];
-            // 建一个 avatar -> 角色名 的映射,便于显示
             const nameMap = new Map();
             for (const c of state.characters || []) nameMap.set(c.avatar, c.name || c.avatar);
             return arr.map(c => {
                 // TauriTavern 搜索结果会带 character_name / character_id / avatar_url 之一
-                const itemAvatar = c.avatar_url || c.character_id || c.avatar || avatar || '';
+                const itemAvatar = c.avatar_url || c.character_id || c.avatar || '';
                 const charName = c.character_name || nameMap.get(itemAvatar) || itemAvatar || '';
-                const title = charName ? `${charName} · ${c.file_name}` : c.file_name;
+                const date = fmtDateStr(c.last_modified) || fmtDateStr(c.file_name);
+                const size = c.file_size ?? c.chat_size ?? '';
                 return {
                     id: `${itemAvatar}::${c.file_name}`,
-                    name: title,
+                    // 分组标题已带角色名,条目名只留文件名;右侧 meta = 日期 · 大小
+                    name: String(c.file_name || '').replace(/\.jsonl$/i, ''),
                     fileName: c.file_name,
+                    // /api/chats/* 系列接口的 ch_name 参数 = 角色目录名(avatar 去掉 .png)
+                    chName: String(itemAvatar).replace(/\.png$/i, ''),
                     group: charName ? `聊天记录 — ${charName}` : '聊天记录',
                     avatar: itemAvatar,
-                    meta: `${c.message_count ?? '?'} 条 · ${c.file_size ?? ''}`,
+                    meta: [date, size].filter(Boolean).join(' · '),
                 };
             });
         },
-        async read(item) { return await post('/api/chats/get', { avatar_url: item.avatar, file_name: item.fileName }); },
-        async write(item, data) { await post('/api/chats/save', { avatar_url: item.avatar, file_name: item.fileName, chat: data, force: true }); },
-        async remove(item) { await post('/api/chats/delete', { avatar_url: item.avatar, chatfile: `${item.fileName}.jsonl` }); },
-        async rename(item, newName) {
-            await post('/api/chats/rename', { avatar_url: item.avatar, original_file: `${item.fileName}.jsonl`, renamed_file: `${newName}.jsonl` });
+        async read(item) {
+            // 不同版本的 /api/chats/get 要求的参数形态不同,逐个尝试
+            const fname = String(item.fileName || '').replace(/\.jsonl$/i, '');
+            const attempts = [
+                { ch_name: item.chName, file_name: fname, avatar_url: item.avatar || '' },
+                { ch_name: item.chName, file_name: fname },
+                { ch_name: item.chName, chat_file: `${fname}.jsonl`, avatar_url: item.avatar || '' },
+            ];
+            let lastErr;
+            for (const body of attempts) {
+                try { return await post('/api/chats/get', body); } catch (e) { lastErr = e; }
+            }
+            throw lastErr;
         },
-        async restore(backup) { await post('/api/chats/save', { avatar_url: backup.avatar, file_name: backup.fileName || backup.name, chat: backup.data, force: true }); },
-        backupOf(item, data) { return { name: item.name, fileName: item.fileName, avatar: item.avatar, data }; },
+        async write(item, data) {
+            const fname = String(item.fileName || '').replace(/\.jsonl$/i, '');
+            await post('/api/chats/save', { ch_name: item.chName, file_name: fname, avatar_url: item.avatar || '', chat: data, force: true });
+        },
+        async remove(item) {
+            const fname = String(item.fileName || '').replace(/\.jsonl$/i, '');
+            await post('/api/chats/delete', { ch_name: item.chName, avatar_url: item.avatar || '', chatfile: `${fname}.jsonl` });
+        },
+        async rename(item, newName) {
+            const fname = String(item.fileName || '').replace(/\.jsonl$/i, '');
+            await post('/api/chats/rename', { ch_name: item.chName, avatar_url: item.avatar || '', original_file: `${fname}.jsonl`, renamed_file: `${newName}.jsonl` });
+        },
+        async restore(backup) {
+            const chName = backup.chName ?? String(backup.avatar || '').replace(/\.png$/i, '');
+            await post('/api/chats/save', { ch_name: chName, file_name: backup.fileName || backup.name, avatar_url: backup.avatar || '', chat: backup.data, force: true });
+        },
+        backupOf(item, data) { return { name: item.name, fileName: item.fileName, chName: item.chName, avatar: item.avatar, data }; },
     },
 
     themes: {
@@ -813,6 +858,21 @@ function buildContent() {
 
 function setStatus(msg) { const el = $('#stdm_status'); if (el) el.textContent = msg; }
 
+// 文本输入弹窗:Tauri 的 WebView 不实现原生 prompt(),手机上改名会没反应,
+// 所以优先用酒馆 Popup 的 INPUT 类型,极老版本再回退 prompt()。
+// 返回输入的字符串;取消返回 null。
+async function uiPrompt(message, defaultValue = '') {
+    const c = ctx();
+    if (c && c.Popup && c.POPUP_TYPE && c.POPUP_TYPE.INPUT) {
+        try {
+            const p = new c.Popup(message, c.POPUP_TYPE.INPUT, defaultValue, { okButton: '确定', cancelButton: '取消' });
+            const res = await p.show();
+            return typeof res === 'string' ? res : null;
+        } catch (e) { console.warn('[数据管家] Popup 输入框打开失败,回退 prompt()', e); }
+    }
+    return prompt(message, defaultValue);
+}
+
 function visibleItems() {
     if (!state.filter) return state.items;
     const kw = state.filter;
@@ -847,7 +907,8 @@ function renderList() {
     syncTopPadding();
     const items = visibleItems();
     if (!items.length) {
-        list.innerHTML = '<div style="opacity:.6;padding:20px;text-align:center;">没有条目</div>';
+        const emptyText = state.tab === 'chats' ? '没有找到聊天记录' : '没有条目';
+        list.innerHTML = `<div style="opacity:.6;padding:20px;text-align:center;">${emptyText}</div>`;
         updateDeleteButton();
         return;
     }
@@ -916,6 +977,7 @@ function renderList() {
             b.addEventListener('click', fn);
             return b;
         };
+        if (ad.isPersona) actions.appendChild(mkIconBtn('fa-eye', '查看内容', '', () => viewPersona(item)));
         if (ad.renamable) actions.appendChild(mkIconBtn('fa-pen', '改名', '', () => renameItem(item)));
         if (ad.editable) actions.appendChild(mkIconBtn('fa-pen-to-square', '编辑', '', () => editItem(item)));
         actions.appendChild(mkIconBtn('fa-download', '导出', '', () => exportItem(item)));
@@ -1056,7 +1118,7 @@ async function exportItem(item) {
 
 async function renameItem(item) {
     const ad = adapters[state.tab];
-    const newName = prompt(`把「${item.name}」改名为：`, item.name);
+    const newName = await uiPrompt(`把「${item.name}」改名为：`, item.name);
     if (!newName || newName === item.name) return;
     if (/[\\/:*?"<>|]/.test(newName)) { toast('名称不能包含 \\ / : * ? " < > | 这些字符', 'warning'); return; }
     try {
@@ -1479,6 +1541,37 @@ async function openHistory() {
         document.body.appendChild(box);
     }
     await renderHistory(box);
+}
+
+/* ------------------------------------------------------------------ *
+ *  查看用户设定(面具)内容
+ * ------------------------------------------------------------------ */
+
+async function viewPersona(item) {
+    let desc = null;
+    try {
+        const pu = ctx().powerUserSettings || {};
+        desc = pu.persona_descriptions ? pu.persona_descriptions[item.id] : null;
+    } catch { /* 忽略 */ }
+    const text = desc && desc.description ? String(desc.description) : '';
+
+    const box = document.createElement('div');
+    box.className = 'stdm-persona-view';
+    box.innerHTML = `
+        <div class="stdm-persona-head"><i class="fa-solid fa-user"></i><span></span></div>
+        <pre class="stdm-persona-text"></pre>`;
+    box.querySelector('.stdm-persona-head span').textContent = item.name;
+    box.querySelector('.stdm-persona-text').textContent = text || '（该面具没有设置描述内容）';
+
+    const c = ctx();
+    if (c.Popup && c.POPUP_TYPE) {
+        const p = new c.Popup(box, c.POPUP_TYPE.TEXT, '', { okButton: '关闭', wide: true, large: true, allowVerticalScrolling: false });
+        p.show();
+        markPopup(p);
+    } else {
+        box.classList.add('stdm-fallback');
+        document.body.appendChild(box);
+    }
 }
 
 /* ------------------------------------------------------------------ *

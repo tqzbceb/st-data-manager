@@ -94,8 +94,8 @@ dialog.popup.stdm-popup,
 
 .stdm-popup .popup-controls {
     padding: 6px 12px;
-    border-top: 1px solid var(--stdm-border);
-    background: var(--stdm-bg-elev);
+    border-top: 1px solid var(--stdm-border-faint);
+    background: var(--stdm-bg);
     display: flex !important;
     justify-content: flex-end !important;
     gap: 6px;
@@ -103,19 +103,22 @@ dialog.popup.stdm-popup,
     align-items: center !important;
 }
 .stdm-popup .popup-controls .menu_button {
-    background: var(--stdm-bg-hover);
-    border: 1px solid var(--stdm-border);
-    color: var(--stdm-text);
-    padding: 7px 16px;
+    /* 覆盖酒馆原生按钮样式:tonal 蓝色按钮,与面板语言统一 */
+    background: var(--stdm-accent-soft) !important;
+    background-image: none !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    color: var(--stdm-accent-text) !important;
+    padding: 7px 18px;
     border-radius: var(--stdm-radius-sm);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: filter 0.15s;
 }
 .stdm-popup .popup-controls .menu_button:hover {
-    background: var(--stdm-bg-active);
-    border-color: var(--stdm-border-strong);
+    filter: brightness(0.96);
+    border-color: var(--stdm-accent) !important;
 }
 
 /* ---------- 根容器 ---------- */
@@ -127,6 +130,8 @@ dialog.popup.stdm-popup,
     height: 100%;
     min-height: 0;
     min-width: 0;
+    /* 兜底:任何子元素超宽都不把面板撑出横向滚动(clip 不产生滚动容器) */
+    overflow-x: clip;
     box-sizing: border-box;
     color: var(--stdm-text);
     background: var(--stdm-bg);
@@ -301,7 +306,11 @@ dialog.popup.stdm-popup,
     font-size: 13px;
     outline: none;
     transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    /* 关键:允许收缩到比选项文字更窄,否则长角色名会把工具栏撑出屏幕 */
+    min-width: 0;
+    max-width: 100%;
 }
+#stdm_toolbar select { text-overflow: ellipsis; }
 
 #stdm_toolbar input[type="text"]::placeholder { color: var(--stdm-text-3); }
 #stdm_toolbar input[type="text"]:focus,
@@ -566,6 +575,10 @@ dialog.popup.stdm-popup,
     border-radius: 999px;
     background: var(--stdm-bg-hover);
     white-space: nowrap;
+    /* 限制宽度防止把行撑出屏幕,超长省略 */
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 第二行:操作按钮,右对齐 */
@@ -750,6 +763,40 @@ dialog.popup.stdm-popup,
     line-height: 1.9;
 }
 
+/* ---------- 查看用户设定(面具)内容 ---------- */
+.stdm-persona-view {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+}
+.stdm-persona-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--stdm-text);
+}
+.stdm-persona-head i { color: var(--stdm-accent); }
+.stdm-persona-text {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--stdm-text);
+    background: var(--stdm-bg-elev);
+    border: 1px solid var(--stdm-border);
+    border-radius: var(--stdm-radius);
+    padding: 12px 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
 .stdm-hist-row { border-bottom: 1px solid var(--stdm-border-faint); }
 
 @media (pointer: coarse), (max-width: 720px) {
@@ -763,6 +810,7 @@ dialog.popup.stdm-popup,
     .stdm_theme_sel { flex: 1 1 auto; padding: 9px; font-size: 13px; }
     .stdm_rowactions { gap: 6px; }
     .stdm_rowactions .stdm_btn { padding: 9px 11px; }
+    #stdm_charpick { min-width: 0; }
 }
 
 /* ---------- 工具类 ---------- */
