@@ -119,6 +119,7 @@ dialog.popup.stdm-popup,
 
 /* ---------- 根容器 ---------- */
 .stdm-root {
+    position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -152,15 +153,27 @@ dialog.popup.stdm-popup,
     flex-wrap: wrap;
 }
 
-/* 把 header/tabs/toolbar 包进一个可收起容器:
-   收起量由 JS 按滚动位置 1:1 渐进设置(负 margin-top,见 syncTopCollapse),
-   条目不会被收起动作整体顶起,回滚到顶自动展开 */
+/* 把 header/tabs/toolbar 包进一个悬浮容器:
+   绝对定位浮在列表上方,收起用 translateY 滑出 — 不参与布局,
+   条目位置与滚动位置完全解耦,从结构上杜绝收起引起的抖动/跳动。
+   列表滚动内容顶部由 JS 留出等高空白(见 syncTopPadding),展开时正好被盖住 */
 .stdm_top_wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
+    background: var(--stdm-bg);
     max-height: 300px;
     overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stdm-root.stdm_collapsed_top .stdm_top_wrap {
+    transform: translateY(-102%);
 }
 
 #stdm_header .stdm_title {

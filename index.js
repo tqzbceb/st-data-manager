@@ -666,14 +666,17 @@ let currentPopup = null;
 let rootEl = null;
 let topWrapEl = null;
 
-// 顶部工具区收起量 = min(列表 scrollTop, 顶部高度),随滚动 1:1 渐进变化。
-// 条目位置只由滚动本身决定,不会被收起动作额外顶起;滚回顶部自动逐帧展开。
-function syncTopCollapse() {
-    if (!topWrapEl || !rootEl) return;
+// 顶部工具区悬浮在列表上方,收起/展开只是 translateY 滑出滑入(class 切换),
+// 不参与布局 — 条目位置与滚动完全解耦,不可能因收起而抖动或跳动。
+function setCollapsed(collapsed) {
+    if (rootEl) rootEl.classList.toggle('stdm_collapsed_top', collapsed);
+}
+
+// 列表滚动内容顶部留出与工具区等高的空白,展开时工具区正好盖住它
+function syncTopPadding() {
+    if (!topWrapEl) return;
     const listEl = $('#stdm_list');
-    if (!listEl) return;
-    // Math.max 防 iOS 回弹时 scrollTop 瞬时为负,把顶部推出间隙
-    topWrapEl.style.marginTop = -Math.max(0, Math.min(listEl.scrollTop, topWrapEl.offsetHeight)) + 'px';
+    if (listEl) listEl.style.paddingTop = topWrapEl.offsetHeight + 'px';
 }
 
 function $(sel) { return rootEl ? rootEl.querySelector(sel) : null; }
@@ -771,13 +774,36 @@ function buildContent() {
         reload();
     });
 
-    // 顶部工具区随滚动渐进收起:滚多少收多少,条目不会被突然顶上去;
-    // 向上滚回顶部时自动逐帧展开,无需二次下拉。
+    // 顶部工具区悬浮(absolute),向下滚动即滑出,不改布局、条目不动;
+    // 滚到顶后不自动出现,需要在顶部再往下拉一次才展开 — touch 端下拉手势,
+    // 桌面端对应到顶后滚轮向上。
     topWrapEl = root.querySelector('.stdm_top_wrap');
     const listEl = root.querySelector('#stdm_list');
-    listEl.addEventListener('scroll', syncTopCollapse, { passive: true });
-    // 弹窗手动 resize 时顶部高度会变(换行增减),尺寸变化后重新对齐收起量
-    if (typeof ResizeObserver === 'function') new ResizeObserver(syncTopCollapse).observe(topWrapEl);
+    listEl.addEventListener('scroll', () => {
+        if (listEl.scrollTop > 20) setCollapsed(true);
+    }, { passive: true });
+
+    let pullStartY = null;
+    listEl.addEventListener('touchstart', (e) => {
+        pullStartY = (listEl.scrollTop <= 5) ? e.touches[0].clientY : null;
+    }, { passive: true });
+    listEl.addEventListener('touchmove', (e) => {
+        if (pullStartY == null) return;
+        const dy = e.touches[0].clientY - pullStartY; // 下拉 dy>0
+        if (dy > 40 && listEl.scrollTop <= 5) {
+            setCollapsed(false);
+            pullStartY = null;
+        }
+    }, { passive: true });
+    listEl.addEventListener('touchend', () => { pullStartY = null; }, { passive: true });
+
+    listEl.addEventListener('wheel', (e) => {
+        if (e.deltaY < 0 && listEl.scrollTop <= 5) setCollapsed(false);
+    }, { passive: true });
+
+    // 弹窗拉伸/窄屏换行导致工具区高度变化时,同步列表顶部留白
+    if (typeof ResizeObserver === 'function') new ResizeObserver(syncTopPadding).observe(topWrapEl);
+    syncTopPadding();
 
     const themeSel = root.querySelector('#stdm_theme');
     for (const t of THEMES) {
@@ -936,7 +962,6 @@ function renderList() {
             });
         }
         list.scrollTop = prevScroll;
-        syncTopCollapse();
         updateDeleteButton();
         return;
     }
@@ -954,7 +979,6 @@ function renderList() {
         list.appendChild(mkRow(item));
     }
     list.scrollTop = prevScroll;
-    syncTopCollapse();
     updateDeleteButton();
 }
 
@@ -995,8 +1019,8 @@ async function switchTab(key) {
         list.innerHTML = '<div class="stdm-empty">加载中…</div>';
         list.scrollTop = 0;
     }
-    // 切 tab 时把顶部展开(scrollTop 归零后收起量自然为 0),方便直接用搜索框
-    syncTopCollapse();
+    // 切 tab 时把顶部展开(scrollTop 归零),方便直接用搜索框
+    if (rootEl) rootEl.classList.remove('stdm_collapsed_top');
     if (showPick) { await populateCharacterPicker(); }
     await reload();
 }
