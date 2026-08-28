@@ -783,34 +783,19 @@ function buildContent() {
         reload();
     });
 
-    // 顶部工具区悬浮(absolute),向下滚动即滑出,不改布局、条目不动;
-    // 滚到顶后不自动出现,需要在顶部再往下拉一次才展开 — touch 端下拉手势,
-    // 桌面端对应到顶后滚轮向上。
+    // 顶部工具区悬浮(absolute),列表内容顶部有等高占位块(见 syncTopPadding)。
+    // 显示/收起完全由滚动位置自动决定:滚过约一个工具区高度才滑出 — 此时占位块
+    // 已完全滚出屏幕,收起不会露出空白;滚回接近顶部自动滑回,无需二次下拉手势。
+    // 条目位置与滚动始终解耦,不存在跳动/抖动。±8px 迟滞防止在临界点来回闪烁。
     topWrapEl = root.querySelector('.stdm_top_wrap');
     const listEl = root.querySelector('#stdm_list');
     listEl.addEventListener('scroll', () => {
-        if (listEl.scrollTop > 20) setCollapsed(true);
+        const h = topWrapEl.offsetHeight;
+        if (listEl.scrollTop > h + 8) setCollapsed(true);
+        else if (listEl.scrollTop < h - 8) setCollapsed(false);
     }, { passive: true });
 
-    let pullStartY = null;
-    listEl.addEventListener('touchstart', (e) => {
-        pullStartY = (listEl.scrollTop <= 5) ? e.touches[0].clientY : null;
-    }, { passive: true });
-    listEl.addEventListener('touchmove', (e) => {
-        if (pullStartY == null) return;
-        const dy = e.touches[0].clientY - pullStartY; // 下拉 dy>0
-        if (dy > 40 && listEl.scrollTop <= 5) {
-            setCollapsed(false);
-            pullStartY = null;
-        }
-    }, { passive: true });
-    listEl.addEventListener('touchend', () => { pullStartY = null; }, { passive: true });
-
-    listEl.addEventListener('wheel', (e) => {
-        if (e.deltaY < 0 && listEl.scrollTop <= 5) setCollapsed(false);
-    }, { passive: true });
-
-    // 弹窗拉伸/窄屏换行导致工具区高度变化时,同步列表顶部留白
+    // 弹窗拉伸/窄屏换行导致工具区高度变化时,同步列表顶部占位块
     if (typeof ResizeObserver === 'function') new ResizeObserver(syncTopPadding).observe(topWrapEl);
     syncTopPadding();
 
