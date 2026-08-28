@@ -1,62 +1,59 @@
 /* ============================================================
    数据管家 · Data Manager
-   Claude 暗色风 — 温暖深棕 + 陶土橙 accent
+   Google 简约浅色风 — 白底 + 谷歌蓝 accent,克制用色、大量留白。
    面板由 SillyTavern 内置 Popup 承载,配色不跟随酒馆主题。
    ============================================================ */
 
-/* ---------- Claude 基础变量 ---------- */
+/* ---------- 基础变量(Google Material 浅色) ---------- */
 .stdm-root,
 .stdm-popup {
-    --stdm-bg: #161311;
-    --stdm-bg-elev: #201c19;
-    --stdm-bg-hover: #2a2420;
-    --stdm-bg-active: #332c27;
-    --stdm-border: #342e2a;
-    --stdm-border-strong: #4a423d;
-    --stdm-border-faint: rgba(236, 231, 226, 0.055);
-    --stdm-text: #ece7e2;
-    --stdm-text-2: #b6ada4;
-    --stdm-text-3: #877d73;
-    --stdm-accent: #d97757;
-    --stdm-accent-hover: #e8896b;
-    --stdm-accent-soft: rgba(217, 119, 87, 0.16);
-    --stdm-accent-text: #e8a389;
-    --stdm-danger: #ef4444;
-    --stdm-danger-soft: rgba(239, 68, 68, 0.14);
+    --stdm-bg: #ffffff;
+    --stdm-bg-elev: #f8f9fa;
+    --stdm-bg-hover: #f1f3f4;
+    --stdm-bg-active: #e8eaed;
+    --stdm-border: #dadce0;
+    --stdm-border-strong: #bdc1c6;
+    --stdm-border-faint: rgba(32, 33, 36, 0.06);
+    --stdm-text: #202124;
+    --stdm-text-2: #5f6368;
+    --stdm-text-3: #80868b;
+    --stdm-accent: #1a73e8;
+    --stdm-accent-hover: #1765cc;
+    --stdm-accent-soft: rgba(26, 115, 232, 0.12);
+    --stdm-accent-text: #1a73e8;
+    --stdm-danger: #d93025;
+    --stdm-danger-soft: rgba(217, 48, 37, 0.10);
     --stdm-radius: 8px;
     --stdm-radius-sm: 6px;
     --stdm-radius-lg: 12px;
-    --stdm-shadow: 0 12px 32px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.20);
+    --stdm-shadow: 0 2px 6px rgba(60, 64, 67, 0.15), 0 10px 28px rgba(60, 64, 67, 0.13);
 }
 
-/* 其他主题:在 Claude 棕底基调上调 accent,不再换整底 */
-.stdm-root[data-theme="claude"], .stdm-popup[data-theme="claude"] {
-    --stdm-accent: #d97757; --stdm-accent-hover: #e8896b; --stdm-accent-text: #e8a389;
-    --stdm-accent-soft: rgba(217, 119, 87, 0.16);
-}
+/* 其他主题:白底基调不变,只换 accent(谷歌系饱和色,浅底上可读)。
+   id 'claude' 是"默认"主题,直接吃上面的基础蓝,不再单独覆盖 */
 .stdm-root[data-theme="sage"], .stdm-popup[data-theme="sage"] {
-    --stdm-accent: #8fbf6f; --stdm-accent-hover: #a3d385; --stdm-accent-text: #b9dca4;
-    --stdm-accent-soft: rgba(143, 191, 111, 0.16);
+    --stdm-accent: #188038; --stdm-accent-hover: #166b30; --stdm-accent-text: #188038;
+    --stdm-accent-soft: rgba(24, 128, 56, 0.12);
 }
 .stdm-root[data-theme="ocean"], .stdm-popup[data-theme="ocean"] {
-    --stdm-accent: #6ba8d9; --stdm-accent-hover: #83bce8; --stdm-accent-text: #a3c8e8;
-    --stdm-accent-soft: rgba(107, 168, 217, 0.16);
+    --stdm-accent: #0e7c86; --stdm-accent-hover: #0a6a73; --stdm-accent-text: #0e7c86;
+    --stdm-accent-soft: rgba(14, 124, 134, 0.12);
 }
 .stdm-root[data-theme="lavender"], .stdm-popup[data-theme="lavender"] {
-    --stdm-accent: #b48fd9; --stdm-accent-hover: #c6a4e8; --stdm-accent-text: #d4b8e8;
-    --stdm-accent-soft: rgba(180, 143, 217, 0.16);
+    --stdm-accent: #8430ce; --stdm-accent-hover: #7229b3; --stdm-accent-text: #8430ce;
+    --stdm-accent-soft: rgba(132, 48, 206, 0.12);
 }
 .stdm-root[data-theme="rose"], .stdm-popup[data-theme="rose"] {
-    --stdm-accent: #d97f9b; --stdm-accent-hover: #e894af; --stdm-accent-text: #eeb2c2;
-    --stdm-accent-soft: rgba(217, 127, 155, 0.16);
+    --stdm-accent: #c2185b; --stdm-accent-hover: #a81650; --stdm-accent-text: #c2185b;
+    --stdm-accent-soft: rgba(194, 24, 91, 0.12);
 }
 .stdm-root[data-theme="amber"], .stdm-popup[data-theme="amber"] {
-    --stdm-accent: #e0a54a; --stdm-accent-hover: #efb860; --stdm-accent-text: #f2c97e;
-    --stdm-accent-soft: rgba(224, 165, 74, 0.16);
+    --stdm-accent: #b26a00; --stdm-accent-hover: #995b00; --stdm-accent-text: #b26a00;
+    --stdm-accent-soft: rgba(178, 106, 0, 0.12);
 }
 .stdm-root[data-theme="mono"], .stdm-popup[data-theme="mono"] {
-    --stdm-accent: #a3a3a3; --stdm-accent-hover: #c2c2c2; --stdm-accent-text: #d6d6d6;
-    --stdm-accent-soft: rgba(163, 163, 163, 0.16);
+    --stdm-accent: #5f6368; --stdm-accent-hover: #3c4043; --stdm-accent-text: #5f6368;
+    --stdm-accent-soft: rgba(95, 99, 104, 0.12);
 }
 
 /* ---------- 弹窗承载 ---------- */
@@ -75,7 +72,7 @@ dialog.popup.stdm-popup,
     overflow: hidden;
     min-width: 360px;
     min-height: 280px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
     text-align: left !important;
 }
 
@@ -543,7 +540,7 @@ dialog.popup.stdm-popup,
     object-fit: cover;
     flex: 0 0 auto;
     border: 1px solid var(--stdm-border-strong);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.18);
 }
 
 /* 关键:名字用 white-space:nowrap + flex:1 + min-width:0 + overflow hidden 保证中文一行显示且超出省略 */
@@ -719,9 +716,9 @@ dialog.popup.stdm-popup,
 }
 
 .stdm-badge-auto {
-    color: #8fbf6f;
-    background: rgba(143, 191, 111, 0.16);
-    border-color: rgba(143, 191, 111, 0.25);
+    color: #137333;
+    background: rgba(52, 168, 83, 0.12);
+    border-color: rgba(52, 168, 83, 0.28);
 }
 
 .stdm-hist-count { font-size: 13px; font-weight: 500; color: var(--stdm-text); }
