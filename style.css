@@ -152,18 +152,15 @@ dialog.popup.stdm-popup,
     flex-wrap: wrap;
 }
 
-/* 把 header/tabs/toolbar 包进一个可折叠容器 */
+/* 把 header/tabs/toolbar 包进一个可收起容器:
+   收起量由 JS 按滚动位置 1:1 渐进设置(负 margin-top,见 syncTopCollapse),
+   条目不会被收起动作整体顶起,回滚到顶自动展开 */
 .stdm_top_wrap {
     display: flex;
     flex-direction: column;
     flex: 0 0 auto;
     max-height: 300px;
     overflow: hidden;
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.stdm-root.stdm_collapsed_top .stdm_top_wrap {
-    max-height: 0;
 }
 
 #stdm_header .stdm_title {
